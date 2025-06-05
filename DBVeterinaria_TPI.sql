@@ -14,7 +14,7 @@ CREATE TABLE Usuarios(
     Usuario VARCHAR(25) PRIMARY KEY,
     IDRol INT NOT NULL FOREIGN KEY REFERENCES Rol(IDRol),
     Clave VARCHAR(255) NOT NULL,
-    Activa BIT
+    Activo BIT DEFAULT 1
 );
 GO
 
@@ -26,7 +26,7 @@ CREATE TABLE Dueños(
     Telefono VARCHAR(20),
     Correo VARCHAR(50) UNIQUE,
     Domicilio VARCHAR(50),
-    Activo BIT
+    Activo BIT DEFAULT 1
 );
 GO
 
@@ -39,7 +39,7 @@ CREATE TABLE Veterinarios(
     Dni VARCHAR(10) NOT NULL UNIQUE,
     Telefono VARCHAR(20),
     Correo VARCHAR(50) UNIQUE,
-    Activo BIT
+    Activo BIT DEFAULT 1
 );
 GO
 
@@ -51,17 +51,18 @@ CREATE TABLE Recepcionistas(
     Dni VARCHAR(10) NOT NULL UNIQUE,
     Telefono VARCHAR(20),
     Correo VARCHAR(50) UNIQUE,
-    Activo BIT
+    Activo BIT DEFAULT 1
 );
 GO
 
----- Primero se crea Turnos y FichaConsulta, ya que Mascotas depende de FichaConsulta y Turnos, y FichaConsulta depende de Turnos
+
 CREATE TABLE Turnos(
     IDTurno BIGINT PRIMARY KEY IDENTITY (1,1),
     MatriculaVeterinario VARCHAR(10) NOT NULL FOREIGN KEY REFERENCES Veterinarios(Matricula), 
-    IDMascota BIGINT NOT NULL, -- FK a Mascotas, pero la creamos sin constraint para evitar circularidad 
+    IDMascota BIGINT NOT NULL, 
     FechaHora DATETIME,
-    Activo BIT
+	Estado VARCHAR(20) DEFAULT 'PENDIENTE',
+    Activo BIT DEFAULT 1
 );
 GO
 
@@ -69,11 +70,10 @@ CREATE TABLE FichaConsulta(
     IDFicha INT PRIMARY KEY IDENTITY (1,1),
     IDTurno BIGINT NOT NULL FOREIGN KEY REFERENCES Turnos(IDTurno),
     Descripcion VARCHAR(500) NOT NULL,
-    Activo BIT
+    Activo BIT DEFAULT 1
 );
 GO
 
--- Ahora sí Mascotas
 CREATE TABLE Mascotas(
     IDMascota BIGINT PRIMARY KEY IDENTITY (1,1),
     DniDueño VARCHAR(10) NOT NULL FOREIGN KEY REFERENCES Dueños(Dni),
@@ -85,11 +85,10 @@ CREATE TABLE Mascotas(
     Raza VARCHAR(25),
     Sexo VARCHAR(20),
     FechaRegistro DATETIME DEFAULT GETDATE(),
-    Activo BIT
+    Activo BIT DEFAULT 1
 );
 GO
 
--- Ahora que ya existe Mascotas, agregamos la FK que falta en Turnos
 ALTER TABLE Turnos
 ADD CONSTRAINT FK_Turnos_Mascotas
 FOREIGN KEY (IDMascota) REFERENCES Mascotas(IDMascota);
@@ -102,6 +101,7 @@ CREATE TABLE Cobros(
     LegajoRecepcionista BIGINT NOT NULL FOREIGN KEY REFERENCES Recepcionistas(Legajo), 
     FormaPago VARCHAR(30),
     Costo DECIMAL(10,2), 
-    Activo BIT
+    Activo BIT DEFAULT 1
 );
 GO
+
