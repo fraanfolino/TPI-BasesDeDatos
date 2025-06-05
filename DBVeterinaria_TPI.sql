@@ -20,7 +20,7 @@ GO
 
 ---- FRANCO -----
 CREATE TABLE Dueños(
-    Dni VARCHAR(10) PRIMARY KEY,
+    Dni VARCHAR(10) PRIMARY KEY ,
     Nombre VARCHAR(25) NOT NULL,
     Apellido VARCHAR(25) NOT NULL,
     Telefono VARCHAR(20),
@@ -103,5 +103,22 @@ CREATE TABLE Cobros(
     Costo DECIMAL(10,2), 
     Activo BIT DEFAULT 1
 );
-GO
 
+
+
+
+
+
+---------------------------- VISTAS -----------------------
+
+ALTER VIEW VW_MascotasActivas AS
+SELECT M.IDMascota, M.Nombre AS NombreMascota, M.Tipo, M.Raza, M.Sexo, M.FechaNacimiento, M.Peso,
+D.Nombre AS NombreDueño, D.Apellido AS ApellidoDueño, D.Telefono, D.Correo, D.Domicilio
+FROM Mascotas AS M
+INNER JOIN Dueños AS D ON M.DniDueño = D.Dni
+WHERE M.Activo = 1 AND D.Activo = 1;
+
+SELECT * FROM VW_MascotasActivas
+
+
+----------------------------------------------------------------
