@@ -243,7 +243,7 @@ GO
 ---------------------------------------------------------------------------
 
 ------------------------VALIDAR SI MASCOTA Y VETERINARIO ESTAN INACTIVOS------------------------------
-CREATE TRIGGER trg_ValidarTurno
+CREATE OR ALTER TRIGGER trg_ValidarTurno
 ON Turnos
 AFTER INSERT
 AS
