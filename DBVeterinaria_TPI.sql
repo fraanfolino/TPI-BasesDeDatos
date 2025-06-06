@@ -192,14 +192,12 @@ BEGIN
         RETURN;
     END
 
-    -- Validar que el recepcionista exista y esté activo
     IF NOT EXISTS (SELECT 1 FROM Recepcionistas WHERE Legajo = @LegajoRecepcionista AND Activo = 1)
     BEGIN
         RAISERROR('Error, el recepcionista no existe o esta inactivo.', 16, 1);
         RETURN;
     END
 
-    -- Registrar el cobro
     INSERT INTO Cobros (IDTurno, LegajoRecepcionista, FormaPago, Costo)
     VALUES (@IDTurno, @LegajoRecepcionista, @FormaPago, @Costo);
 END;
@@ -243,3 +241,31 @@ BEGIN
 END;
 GO
 ---------------------------------------------------------------------------
+
+------------------------VALIDAR SI MASCOTA Y VETERINARIO ESTAN INACTIVOS------------------------------
+CREATE TRIGGER trg_ValidarTurno
+ON Turnos
+AFTER INSERT
+AS
+BEGIN
+ 
+  IF EXISTS(SELECT 1 FROM inserted i INNER JOIN Veterinarios v ON i.MatriculaVeterinario = v.Matricula WHERE v.Activo = 0)
+  
+  BEGIN
+   
+   RAISERROR('No se puede insertar turno. El veterinario está inactivo.', 16, 1);
+    ROLLBACK TRANSACTION;
+    RETURN;
+  
+  END;
+
+  IF EXISTS(SELECT 1 FROM inserted i INNER JOIN Mascotas m ON i.IDMascota = m.IDMascota WHERE m.Activo = 0)
+  BEGIN
+
+    RAISERROR('No se puede insertar turno. La mascota está inactiva.', 16, 1);
+    ROLLBACK TRANSACTION;
+    RETURN;
+
+  END;
+END;
+GO
