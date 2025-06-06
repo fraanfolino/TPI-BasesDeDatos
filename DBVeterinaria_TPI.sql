@@ -19,7 +19,7 @@ CREATE TABLE Usuarios(
 GO
 
 ---- FRANCO -----
-CREATE TABLE Due�os(
+CREATE TABLE Dueños(
     Dni VARCHAR(10) PRIMARY KEY ,
     Nombre VARCHAR(25) NOT NULL,
     Apellido VARCHAR(25) NOT NULL,
@@ -76,7 +76,7 @@ GO
 
 CREATE TABLE Mascotas(
     IDMascota BIGINT PRIMARY KEY IDENTITY (1,1),
-    DniDue�o VARCHAR(10) NOT NULL FOREIGN KEY REFERENCES Due�os(Dni),
+    DniDueño VARCHAR(10) NOT NULL FOREIGN KEY REFERENCES Dueños(Dni),
     Nombre VARCHAR(25) NOT NULL,
     Edad INT,
     FechaNacimiento DATETIME,
@@ -111,13 +111,13 @@ CREATE TABLE Cobros(
 
 ---------------------------- VISTAS -----------------------
 
----------------------VISTA MASCOTAS ACTIVAS CON DUE�O---------------------
+---------------------VISTA MASCOTAS ACTIVAS CON DUEÑO---------------------
 
 ALTER VIEW VW_MascotasActivas AS
 SELECT M.IDMascota, M.Nombre AS NombreMascota, M.Tipo, M.Raza, M.Sexo, M.FechaNacimiento, M.Peso,
-D.Nombre AS NombreDue�o, D.Apellido AS ApellidoDue�o, D.Telefono, D.Correo, D.Domicilio
+D.Nombre AS NombreDueño, D.Apellido AS ApellidoDueño, D.Telefono, D.Correo, D.Domicilio
 FROM Mascotas AS M
-INNER JOIN Due�os AS D ON M.DniDue�o = D.Dni
+INNER JOIN Dueños AS D ON M.DniDueño = D.Dni
 WHERE M.Activo = 1 AND D.Activo = 1;
 
 SELECT * FROM VW_MascotasActivas
@@ -132,15 +132,31 @@ INNER JOIN Rol R ON U.IDRol = R.IDRol
 SELECT * FROM VW_UsuariosRoles
 ----------------------------------------------------------------
 
-
-
-
-
-
+--------------VISTA DE MASCOTAS CON SU ULTIMA CONSULTA----------
+CREATE VIEW VW_MascotasUltimaConsulta AS
+SELECT 
+    M.IDMascota,
+    M.Nombre AS NombreMascota,
+    M.DniDueño,
+    FC.IDFicha,
+    FC.Descripcion,
+    FC.IDTurno,
+    T.FechaHora
+FROM Mascotas M
+OUTER APPLY (
+    SELECT TOP 1 FC.*
+    FROM Turnos T
+    JOIN FichaConsulta FC ON FC.IDTurno = T.IDTurno
+    WHERE T.IDMascota = M.IDMascota
+    ORDER BY FC.IDFicha DESC
+) FC
+JOIN Turnos T ON T.IDTurno = FC.IDTurno;
+GO
+----------------------------------------------------------------
 
 ---------------- PROCEDIMIENTOS ALMACENADOS ----------------------
 
---------------- CAMBIAR CONTRASE�A DE USUARIO --------------------
+--------------- CAMBIAR CONTRASEÑA DE USUARIO --------------------
 ALTER PROCEDURE SP_CambiarClave(
 	@User VARCHAR(25),
   	@Pass VARCHAR(255)
@@ -152,21 +168,49 @@ BEGIN
 		UPDATE Usuarios 
 		SET Clave = @Pass 
 		WHERE Usuario = @User;
-		PRINT 'Contrase�a actualizada con exito.';
+		PRINT 'Contraseña actualizada con exito.';
 	END
 	ELSE
 	BEGIN
 		RAISERROR('El usuario ingresado no existe', 16, 1);
 	END
 END
-
 ------------------------------------------------------------------
 
 
+------------------- REGISTRAR COBRO ------------------------------
+CREATE PROCEDURE SP_RegistrarCobro
+    @IDTurno BIGINT,
+    @LegajoRecepcionista BIGINT,
+    @FormaPago VARCHAR(30),
+    @Costo DECIMAL(10,2)
+AS
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM Turnos WHERE IDTurno = @IDTurno AND Activo = 1)
+    BEGIN
+        RAISERROR('Error, no se encontro el turno', 16, 1);
+        RETURN;
+    END
+
+    -- Validar que el recepcionista exista y esté activo
+    IF NOT EXISTS (SELECT 1 FROM Recepcionistas WHERE Legajo = @LegajoRecepcionista AND Activo = 1)
+    BEGIN
+        RAISERROR('Error, el recepcionista no existe o esta inactivo.', 16, 1);
+        RETURN;
+    END
+
+    -- Registrar el cobro
+    INSERT INTO Cobros (IDTurno, LegajoRecepcionista, FormaPago, Costo)
+    VALUES (@IDTurno, @LegajoRecepcionista, @FormaPago, @Costo);
+END;
+GO
+------------------------------------------------------------------
+
+	
 ---------------------AGREGAR MASCOTA------------------
 
 ALTER PROCEDURE sp_AgregarMascota
-    @DniDue�o VARCHAR(10),
+    @DniDueño VARCHAR(10),
     @Nombre VARCHAR(25),
     @Edad INT,
     @FechaNacimiento DATETIME,
@@ -177,12 +221,25 @@ ALTER PROCEDURE sp_AgregarMascota
 AS
 BEGIN
    
-    INSERT INTO Mascotas (DniDue�o, Nombre, Edad, FechaNacimiento, Peso, Tipo, Raza, Sexo, FechaRegistro, Activo)
-    VALUES (@DniDue�o, @Nombre, @Edad, @FechaNacimiento, @Peso, @Tipo, @Raza, @Sexo, GETDATE(), 1);
+    INSERT INTO Mascotas (DniDueño, Nombre, Edad, FechaNacimiento, Peso, Tipo, Raza, Sexo, FechaRegistro, Activo)
+    VALUES (@DniDueño, @Nombre, @Edad, @FechaNacimiento, @Peso, @Tipo, @Raza, @Sexo, GETDATE(), 1);
 
     PRINT 'Mascota registrada correctamente.';
 END;
 
-
 ---------------------------------------------------------------------------
 
+------------------------------- TRIGGERS ----------------------------------
+
+---------------DESACTIVAR COBRO AL ELIMINAR TURNO--------------------------
+CREATE TRIGGER TRG_DesactivarCobro_AlEliminarTurno
+ON Turnos
+AFTER DELETE
+AS
+BEGIN
+    UPDATE Cobros
+    SET Activo = 0
+    WHERE IDTurno IN (SELECT IDTurno FROM DELETED);
+END;
+GO
+---------------------------------------------------------------------------
