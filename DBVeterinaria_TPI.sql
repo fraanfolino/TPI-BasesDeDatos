@@ -111,6 +111,8 @@ CREATE TABLE Cobros(
 
 ---------------------------- VISTAS -----------------------
 
+---------------------VISTA MASCOTAS ACTIVAS CON DUEÑO---------------------
+
 ALTER VIEW VW_MascotasActivas AS
 SELECT M.IDMascota, M.Nombre AS NombreMascota, M.Tipo, M.Raza, M.Sexo, M.FechaNacimiento, M.Peso,
 D.Nombre AS NombreDueño, D.Apellido AS ApellidoDueño, D.Telefono, D.Correo, D.Domicilio
@@ -120,6 +122,8 @@ WHERE M.Activo = 1 AND D.Activo = 1;
 
 SELECT * FROM VW_MascotasActivas
 
+---------------------------------------------------------------
+
 ----------------- VISTA DE USUARIOS CON ROLES -----------------
 ALTER VIEW VW_UsuariosRoles AS
 SELECT U.Usuario, U.Clave, U.Activo, R.Nombre AS Rol FROM Usuarios U
@@ -127,6 +131,10 @@ INNER JOIN Rol R ON U.IDRol = R.IDRol
 
 SELECT * FROM VW_UsuariosRoles
 ----------------------------------------------------------------
+
+
+
+
 
 
 
@@ -153,3 +161,28 @@ BEGIN
 END
 
 ------------------------------------------------------------------
+
+
+---------------------AGREGAR MASCOTA------------------
+
+ALTER PROCEDURE sp_AgregarMascota
+    @DniDueño VARCHAR(10),
+    @Nombre VARCHAR(25),
+    @Edad INT,
+    @FechaNacimiento DATETIME,
+    @Peso DECIMAL(5,2),
+    @Tipo VARCHAR(25),
+    @Raza VARCHAR(25),
+    @Sexo VARCHAR(20)
+AS
+BEGIN
+   
+    INSERT INTO Mascotas (DniDueño, Nombre, Edad, FechaNacimiento, Peso, Tipo, Raza, Sexo, FechaRegistro, Activo)
+    VALUES (@DniDueño, @Nombre, @Edad, @FechaNacimiento, @Peso, @Tipo, @Raza, @Sexo, GETDATE(), 1);
+
+    PRINT 'Mascota registrada correctamente.';
+END;
+
+
+---------------------------------------------------------------------------
+
