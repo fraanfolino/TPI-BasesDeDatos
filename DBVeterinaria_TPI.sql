@@ -120,5 +120,36 @@ WHERE M.Activo = 1 AND D.Activo = 1;
 
 SELECT * FROM VW_MascotasActivas
 
+----------------- VISTA DE USUARIOS CON ROLES -----------------
+ALTER VIEW VW_UsuariosRoles AS
+SELECT U.Usuario, U.Clave, U.Activo, R.Nombre AS Rol FROM Usuarios U
+INNER JOIN Rol R ON U.IDRol = R.IDRol
 
+SELECT * FROM VW_UsuariosRoles
 ----------------------------------------------------------------
+
+
+
+---------------- PROCEDIMIENTOS ALMACENADOS ----------------------
+
+--------------- CAMBIAR CONTRASEÑA DE USUARIO --------------------
+ALTER PROCEDURE SP_CambiarClave(
+	@User VARCHAR(25),
+  	@Pass VARCHAR(255)
+)
+AS
+BEGIN
+	IF EXISTS (SELECT 1 FROM Usuarios WHERE Usuario = @User)
+	BEGIN
+		UPDATE Usuarios 
+		SET Clave = @Pass 
+		WHERE Usuario = @User;
+		PRINT 'Contraseña actualizada con exito.';
+	END
+	ELSE
+	BEGIN
+		RAISERROR('El usuario ingresado no existe', 16, 1);
+	END
+END
+
+------------------------------------------------------------------
