@@ -274,10 +274,52 @@ BEGIN
 		PRINT ERROR_MESSAGE()
 	END CATCH
 END;
-------------------------------------------------------------------
+
+---------------------------------------------------------------------------
+---------------------- REGISTRAR VETERINARIO ------------------------------
+---------------------------------------------------------------------------
+
+alter PROCEDURE SP_registrarVeterinario(
+	@Matricula varchar(10),
+	@Usuario varchar(25),
+	@Nombre varchar(25),
+	@Apellido varchar(25),
+	@Dni varchar(25),
+	@Telefono varchar(20),
+	@Correo varchar(50)
+) AS
+BEGIN
+	BEGIN TRY
+		--------- Verificamos si el usuario esta registrado en la tabla 'Usuarios' --------------
+		DECLARE @User varchar(25)
+		Select @User = Usuario from Usuarios WHERE Usuario like @Usuario 
+		IF @User IS NULL
+		BEGIN
+			RAISERROR ('NO EXISTE USUARIO REGISTRADO CON ESE NOMBRE', 16, 1)
+		END
+		
+		--------- Verificamos que el Usuario no este registrado con otro Veterinario ------------
+		IF(SELECT COUNT(*) FROM Veterinarios WHERE Usuario like @Usuario) > 0
+		BEGIN
+			RAISERROR ('YA EXISTE VETERINARIO CON ESE USUARIO', 16, 1)
+		END
+		--------- Verificamos que no se encuentre registrada el veterinario ---------------
+		IF(SELECT COUNT(*) FROM Veterinarios WHERE Dni like @Dni) > 0
+		BEGIN
+			RAISERROR ('YA EXISTE VETERINARIO CON ESE D.N.I.', 16, 1)
+		END
+		---------- Registramos los Datos -------------------
+		INSERT INTO Veterinarios (Matricula , Usuario, Nombre, Apellido, Dni, Telefono, Correo) 
+		VALUES (@Matricula, @Usuario, @Nombre, @Apellido, @Dni, @Telefono, @Correo)
+
+	END TRY
+	BEGIN CATCH
+		PRINT ERROR_MESSAGE()
+	END CATCH
+END;
+---------------------------------------------------------------------------
 
 ------------------------------- TRIGGERS ----------------------------------
-
 ---------------DESACTIVAR COBRO AL ELIMINAR TURNO--------------------------
 CREATE TRIGGER TRG_DesactivarCobro_AlEliminarTurno
 ON Turnos
@@ -290,7 +332,6 @@ BEGIN
 END;
 GO
 ---------------------------------------------------------------------------
-
 ------------------------VALIDAR SI MASCOTA Y VETERINARIO ESTAN INACTIVOS------------------------------
 CREATE OR ALTER TRIGGER trg_ValidarTurno
 ON Turnos
@@ -318,3 +359,64 @@ BEGIN
   END;
 END;
 GO
+
+
+
+
+-- ROL
+INSERT INTO Rol (Nombre) VALUES ('Recepcionista'), ('Veterinario');
+
+-- USUARIOS
+INSERT INTO Usuarios (Usuario, IDRol, Clave) VALUES 
+('vet_jlopez', 2, 'clave123'), 
+('vet_mgomez', 2, 'clave123'), 
+('vet_rsosa', 2, 'clave123'),
+('recep_sjuarez', 1, 'clave123'),
+('recep_mruiz', 1, 'clave123');
+
+-- VETERINARIOS
+INSERT INTO Veterinarios (Matricula, Usuario, Nombre, Apellido, Dni, Telefono, Correo) VALUES 
+('VET001', 'vet_jlopez', 'Juan', 'Lopez', '30111222', '1122334455', 'jlopez@vet.com'),
+('VET002', 'vet_mgomez', 'Maria', 'Gomez', '30999888', '1133445566', 'mgomez@vet.com'),
+('VET003', 'vet_rsosa', 'Ricardo', 'Sosa', '32123456', '1144556677', 'rsosa@vet.com');
+
+-- RECEPCIONISTAS
+INSERT INTO Recepcionistas (Usuario, Nombre, Apellido, Dni, Telefono, Correo) VALUES 
+('recep_sjuarez', 'Sofía', 'Juarez', '27000111', '1177889900', 'sjuarez@vet.com'),
+('recep_mruiz', 'Marcos', 'Ruiz', '28000222', '1166778899', 'mruiz@vet.com');
+
+-- DUEÑOS
+INSERT INTO Dueños (Dni, Nombre, Apellido, Telefono, Correo, Domicilio) VALUES 
+('11111111', 'Carlos', 'Perez', '1111222233', 'cperez@mail.com', 'Av. Siempre Viva 123'),
+('22222222', 'Lucia', 'Fernandez', '2222333344', 'lfernandez@mail.com', 'Calle Falsa 456'),
+('33333333', 'Diego', 'Martinez', '3333444455', 'dmartinez@mail.com', 'Av. Mitre 789');
+
+-- MASCOTAS (Carlos tiene 2)
+INSERT INTO Mascotas (DniDueño, Nombre, Edad, FechaNacimiento, Peso, Tipo, Raza, Sexo) VALUES 
+('11111111', 'Firulais', 3, '2022-01-15', 12.5, 'Perro', 'Labrador', 'Macho'),
+('11111111', 'Mishi', 2, '2023-03-10', 3.2, 'Gato', 'Siamés', 'Hembra'),
+('22222222', 'Toby', 5, '2020-07-01', 8.7, 'Perro', 'Beagle', 'Macho'),
+('33333333', 'Luna', 1, '2024-02-14', 4.0, 'Gato', 'Persa', 'Hembra');
+
+-- TURNOS (3 anteriores a la fecha de hoy)
+INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES 
+('VET001', 1, '2025-05-20 10:00'), -- anterior
+('VET002', 2, '2025-05-25 11:00'), -- anterior
+('VET003', 3, '2025-05-10 09:00'), -- anterior
+('VET001', 1, '2025-06-10 10:00'),
+('VET002', 2, '2025-06-11 11:00'),
+('VET003', 3, '2025-06-12 09:00'),
+('VET001', 4, '2025-06-13 13:00'),
+('VET002', 4, '2025-06-14 15:00');
+
+-- FICHAS CONSULTA para los 3 turnos anteriores
+INSERT INTO FichaConsulta (IDTurno, Descripcion) VALUES 
+(1, 'Consulta general, se desparasitó al paciente.'),
+(2, 'Vacunación anual realizada sin inconvenientes.'),
+(3, 'Se trató una infección leve en el oído.');
+
+-- COBROS para los turnos anteriores
+INSERT INTO Cobros (IDTurno, LegajoRecepcionista, FormaPago, Costo) VALUES 
+(1, 100, 'Efectivo', 3500.00),
+(2, 101, 'Tarjeta', 4500.00),
+(3, 100, 'MercadoPago', 3800.00);
