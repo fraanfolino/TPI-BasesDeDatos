@@ -154,6 +154,16 @@ JOIN Turnos T ON T.IDTurno = FC.IDTurno;
 GO
 ----------------------------------------------------------------
 
+------------- TURNOS PENDIENTES -------------------------------
+
+CREATE VIEW VW_TurnosPendientes AS
+SELECT T.IDTurno, (V.Apellido + ', ' + V.Nombre) AS Veterinario, M.Nombre AS Mascota, FechaHora FROM Turnos T
+INNER JOIN Veterinarios V ON T.MatriculaVeterinario = V.Matricula
+INNER JOIN Mascotas M ON T.IDMascota = M.IDMascota
+WHERE T.Estado like 'Pendiente';
+--------------------------------------------------------------
+
+
 ---------------- PROCEDIMIENTOS ALMACENADOS ----------------------
 
 --------------- CAMBIAR CONTRASEÑA DE USUARIO --------------------
@@ -226,6 +236,45 @@ BEGIN
 END;
 
 ---------------------------------------------------------------------------
+
+-------------- REGISTRAR RECEPCIONISTA ---------------------------
+CREATE PROCEDURE SP_registrarRecepcionista(
+	@Usuario varchar(25),
+	@Nombre varchar(25),
+	@Apellido varchar(25),
+	@Dni varchar(25),
+	@Telefono varchar(20),
+	@Correo varchar(50)
+) AS
+BEGIN
+	BEGIN TRY
+		--------- Verificamos si el usuario esta registrado en la tabla 'Usuarios' --------------
+		DECLARE @User varchar(25)
+		Select @User = Usuario from Usuarios WHERE Usuario like @Usuario 
+		IF @User IS NULL
+		BEGIN
+			RAISERROR ('NO EXISTE USUARIO REGISTRADO CON ESE NOMBRE', 16, 1)
+		END
+		
+		--------- Verificamos que el Usuario no este regitrado con otra Recepcionista------------
+		IF(SELECT COUNT(*) FROM Recepcionistas WHERE Usuario like @Usuario) > 0
+		BEGIN
+			RAISERROR ('YA EXISTE RECEPCIONISTA CON ESE USUARIO', 16, 1)
+		END
+		--------- Verificamos que no se encuentre registrada la Recepcionista ---------------
+		IF(SELECT COUNT(*) FROM Recepcionistas WHERE Dni like @Dni) > 0
+		BEGIN
+			RAISERROR ('YA EXISTE RECEPCIONISTA CON ESE D.N.I.', 16, 1)
+		END
+		---------- Registramos los Datos -------------------
+		INSERT INTO Recepcionistas (Usuario, Nombre, Apellido, Dni, Telefono, Correo) VALUES (@Usuario, @Nombre, @Apellido, @Dni, @Telefono, @Correo)
+
+	END TRY
+	BEGIN CATCH
+		PRINT ERROR_MESSAGE()
+	END CATCH
+END;
+------------------------------------------------------------------
 
 ------------------------------- TRIGGERS ----------------------------------
 
