@@ -279,6 +279,8 @@ END;
 ---------------------- REGISTRAR VETERINARIO ------------------------------
 ---------------------------------------------------------------------------
 
+
+
 alter PROCEDURE SP_registrarVeterinario(
 	@Matricula varchar(10),
 	@Usuario varchar(25),
@@ -317,6 +319,62 @@ BEGIN
 		PRINT ERROR_MESSAGE()
 	END CATCH
 END;
+
+------------------------REGISTRAR TURNO-------------------
+
+select * from turnos
+
+CREATE  OR ALTER PROCEDURE SP_RegistrarTurno
+    @MatriculaVeterinario VARCHAR(10),
+    @IDMascota BIGINT,
+    @FechaHora DATETIME,
+    @Estado VARCHAR(20), 
+    @Activo BIT           
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+  
+    IF NOT EXISTS (
+        SELECT 1 FROM Veterinarios WHERE Matricula = @MatriculaVeterinario AND Activo = 1
+    )
+    BEGIN
+        RAISERROR('No se puede registrar el turno. El veterinario está inactivo.', 16, 1);
+        RETURN;
+    END;
+
+   
+    IF NOT EXISTS (
+        SELECT 1 FROM Mascotas WHERE IDMascota = @IDMascota AND Activo = 1
+    )
+    BEGIN
+        RAISERROR('No se puede registrar el turno. La mascota está inactiva.', 16, 1);
+        RETURN;
+    END;
+
+    
+    INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora, Estado, Activo)
+    VALUES (@MatriculaVeterinario, @IDMascota, @FechaHora, @Estado, @Activo);
+
+    PRINT 'Turno registrado correctamente.';
+END;
+
+SELECT * FROM Turnos
+
+
+EXEC SP_RegistrarTurno
+    @MatriculaVeterinario = 'VET001', 
+    @IDMascota = 4, 
+    @FechaHora = '2025-06-07 10:00:00', 
+    @Estado = 'CONFIRMADO', 
+    @Activo = 1;
+
+-------------------------------------------------------------------
+
+
+
+
+GO
 ---------------------------------------------------------------------------
 
 ------------------------------- TRIGGERS ----------------------------------
@@ -420,3 +478,5 @@ INSERT INTO Cobros (IDTurno, LegajoRecepcionista, FormaPago, Costo) VALUES
 (1, 100, 'Efectivo', 3500.00),
 (2, 101, 'Tarjeta', 4500.00),
 (3, 100, 'MercadoPago', 3800.00);
+
+
