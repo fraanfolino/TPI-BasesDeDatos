@@ -163,6 +163,7 @@ INNER JOIN Mascotas M ON T.IDMascota = M.IDMascota
 WHERE T.Estado like 'Pendiente';
 --------------------------------------------------------------
 
+select * from FichaConsulta
 
 ---------------- PROCEDIMIENTOS ALMACENADOS ----------------------
 
@@ -275,6 +276,29 @@ BEGIN
 	END CATCH
 END;
 
+
+
+
+------------ Vista Fichas con diagnostico por veterinario---------------
+
+CREATE  VIEW VW_FichasConDiagnostico AS
+SELECT 
+    FC.IDFicha, 
+    FC.Descripcion AS Diagnostico, 
+    FC.Activo, 
+    T.IDTurno, 
+    T.FechaHora, 
+    V.Matricula AS MatriculaVeterinario, 
+    V.Nombre AS NombreVeterinario, 
+    V.Apellido AS ApellidoVeterinario
+FROM FichaConsulta FC
+INNER JOIN Turnos T ON FC.IDTurno = T.IDTurno
+INNER JOIN Veterinarios V ON T.MatriculaVeterinario = V.Matricula
+WHERE FC.Activo = 1;
+GO
+---------------------------------------------------------
+
+
 ---------------------------------------------------------------------------
 ---------------------- REGISTRAR VETERINARIO ------------------------------
 ---------------------------------------------------------------------------
@@ -370,9 +394,25 @@ EXEC SP_RegistrarTurno
     @Activo = 1;
 
 -------------------------------------------------------------------
+---------------------------OBTENER FICHAS POR VETERINARIO-------------
 
+CREATE PROCEDURE SP_ObtenerFichasPorVeterinario
+    @MatriculaVeterinario VARCHAR(10)
+AS
+BEGIN
+  
+    IF NOT EXISTS (SELECT 1 FROM Veterinarios WHERE Matricula = @MatriculaVeterinario)
+    BEGIN
+        RAISERROR('Error: El veterinario no existe.', 16, 1);
+        RETURN;
+    END;
 
+    SELECT * FROM VW_FichasConDiagnostico
+    WHERE MatriculaVeterinario = @MatriculaVeterinario;
+END;
+GO
 
+EXEC SP_ObtenerFichasPorVeterinario @MatriculaVeterinario = 'VET001';
 
 GO
 ---------------------------------------------------------------------------
