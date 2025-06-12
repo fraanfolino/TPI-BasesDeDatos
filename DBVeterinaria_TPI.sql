@@ -504,8 +504,8 @@ BEGIN
 		PRINT ERROR_MESSAGE()
 	END CATCH
 END
-------------------------------------------------------------------------
 
+------------------------------------------------------------------------
 ----------------------ELIMINAR UN TURNO DE FORMA LOGICA---------------
 CREATE OR ALTER TRIGGER tg_EliminarTurnoLogico
 ON Turnos
@@ -515,6 +515,63 @@ BEGIN
 	UPDATE Turnos
 	SET Activo = 0
 	WHERE IDTurno IN (SELECT IDTurno FROM deleted)
+END
+
+--------------------------------------------------------------------------------------
+------------------------- Eliminar una mascota de forma logica -----------------------
+CREATE OR ALTER TRIGGER tg_EliminarMascotaLogico
+On Mascotas
+INSTEAD OF DELETE
+AS
+BEGIN	
+	UPDATE Mascotas
+	SET Activo = 0
+	WHERE IDMascota = (SELECT IDMascota From deleted)
+END
+--------------------------------------------------------------------------------------
+--------------------- Cambiar el estado de un turno atendido -------------------------
+
+CREATE OR ALTER TRIGGER tg_cambiarEstadoTurno_FichaConsulta
+ON FichaConsulta
+AFTER INSERT
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+		 -- Luego de que se inserto el la consulta correctamente se modifica el estado del turno
+		 DECLARE @idTurno int
+		 Select @idTurno = IDTurno FROM INSERTED 
+		
+		UPDATE Turnos SET	Estado = 'REALIZADO' WHERE IDTurno = @idTurno
+		
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+	END CATCH
+END
+
+--------------------------------------------------------------------------------------
+-------------------CAMBIAR EL ESTADO DEL TURNO SI SE REALIZA EL COBRO (COBROS)-------
+
+CREATE OR ALTER TRIGGER tg_cambiarEstadoTurno_Cobros
+ON Cobros
+AFTER INSERT
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+		 -- Luego de que se inserto el cobro correctamente se modifica el estado del turno
+		 DECLARE @idTurno int
+		 Select @idTurno = IDTurno FROM INSERTED 
+		
+		UPDATE Turnos SET	Estado = 'COBRADO' WHERE IDTurno = @idTurno
+		
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+	END CATCH
 END
 
 
