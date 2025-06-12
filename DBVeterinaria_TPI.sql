@@ -357,7 +357,7 @@ END;
 ------------------------------------REGISTRAR TURNO------------------------------
 
 
-CREATE  OR ALTER PROCEDURE SP_RegistrarTurno
+CREATE OR ALTER PROCEDURE SP_RegistrarTurno
     @MatriculaVeterinario VARCHAR(10),
     @IDMascota BIGINT,
     @FechaHora DATETIME,
@@ -365,44 +365,69 @@ CREATE  OR ALTER PROCEDURE SP_RegistrarTurno
     @Activo BIT           
 AS
 BEGIN
-    SET NOCOUNT ON;
+    
 
-  
-    IF NOT EXISTS (
-        SELECT 1 FROM Veterinarios WHERE Matricula = @MatriculaVeterinario AND Activo = 1
-    )
+    DECLARE @CantidadVeterinarios INT;
+    DECLARE @CantidadMascotas INT;
+
+ 
+    SELECT @CantidadVeterinarios = COUNT(*)
+    FROM Veterinarios
+    WHERE Matricula = @MatriculaVeterinario AND Activo = 1;
+
+    
+    IF @CantidadVeterinarios = 0
     BEGIN
         RAISERROR('No se puede registrar el turno. El veterinario está inactivo.', 16, 1);
         RETURN;
     END;
 
-   
-    IF NOT EXISTS (
-        SELECT 1 FROM Mascotas WHERE IDMascota = @IDMascota AND Activo = 1
-    )
+  
+    SELECT @CantidadMascotas = COUNT(*)
+    FROM Mascotas
+    WHERE IDMascota = @IDMascota AND Activo = 1;
+
+ 
+    IF @CantidadMascotas = 0
     BEGIN
         RAISERROR('No se puede registrar el turno. La mascota está inactiva.', 16, 1);
         RETURN;
     END;
 
-    
+ 
     INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora, Estado, Activo)
     VALUES (@MatriculaVeterinario, @IDMascota, @FechaHora, @Estado, @Activo);
 
     PRINT 'Turno registrado correctamente.';
 END;
+GO
 
+select * from Turnos
 
-
+EXEC SP_RegistrarTurno 
+    @MatriculaVeterinario = 'VET001', 
+    @IDMascota = 2, 
+    @FechaHora = '2025-06-07 10:00:00', 
+    @Estado = 'CONFIRMADO', 
+    @Activo = 1;
 ------------------------------------------------------------------------------------------
 ---------------------------------OBTENER FICHAS POR VETERINARIO----------------------------
 
-CREATE PROCEDURE SP_ObtenerFichasPorVeterinario
+CREATE OR ALTER PROCEDURE SP_ObtenerFichasPorVeterinario
     @MatriculaVeterinario VARCHAR(10)
 AS
 BEGIN
-  
-    IF NOT EXISTS (SELECT 1 FROM Veterinarios WHERE Matricula = @MatriculaVeterinario)
+    SET NOCOUNT ON;
+
+    DECLARE @CantidadVeterinarios INT;
+
+   
+    SELECT @CantidadVeterinarios = COUNT(*)
+    FROM Veterinarios
+    WHERE Matricula = @MatriculaVeterinario;
+
+    
+    IF @CantidadVeterinarios = 0
     BEGIN
         RAISERROR('Error: El veterinario no existe.', 16, 1);
         RETURN;
@@ -413,6 +438,7 @@ BEGIN
 END;
 GO
 
+EXEC SP_ObtenerFichasPorVeterinario @MatriculaVeterinario = 'VET001';
 
 ----------------------------------------------------------------------------------
 
@@ -438,30 +464,42 @@ GO
 -----------------------------------------------------------------------------------
 
 ------------------------VALIDAR SI MASCOTA Y VETERINARIO ESTAN INACTIVOS------------
+select * from Turnos
 CREATE OR ALTER TRIGGER trg_ValidarTurno
 ON Turnos
 AFTER INSERT
 AS
 BEGIN
- 
-  IF EXISTS(SELECT 1 FROM inserted i INNER JOIN Veterinarios v ON i.MatriculaVeterinario = v.Matricula WHERE v.Activo = 0)
-  
-  BEGIN
+    DECLARE @CantidadVeterinariosInactivos INT;
+    DECLARE @CantidadMascotasInactivas INT;
+
+
+    SELECT @CantidadVeterinariosInactivos = COUNT(*)
+    FROM inserted i
+    INNER JOIN Veterinarios v ON i.MatriculaVeterinario = v.Matricula
+    WHERE v.Activo = 0;
+
    
-   RAISERROR('No se puede insertar turno. El veterinario está inactivo.', 16, 1);
-    ROLLBACK TRANSACTION;
-    RETURN;
-  
-  END;
+    IF @CantidadVeterinariosInactivos > 0
+    BEGIN
+        RAISERROR('No se puede insertar turno. El veterinario está inactivo.', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END;
 
-  IF EXISTS(SELECT 1 FROM inserted i INNER JOIN Mascotas m ON i.IDMascota = m.IDMascota WHERE m.Activo = 0)
-  BEGIN
+    
+    SELECT @CantidadMascotasInactivas = COUNT(*)
+    FROM inserted i
+    INNER JOIN Mascotas m ON i.IDMascota = m.IDMascota
+    WHERE m.Activo = 0;
 
-    RAISERROR('No se puede insertar turno. La mascota está inactiva.', 16, 1);
-    ROLLBACK TRANSACTION;
-    RETURN;
-
-  END;
+   
+    IF @CantidadMascotasInactivas > 0
+    BEGIN
+        RAISERROR('No se puede insertar turno. La mascota está inactiva.', 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END;
 END;
 GO
 
