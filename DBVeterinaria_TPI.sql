@@ -2,8 +2,6 @@
 --ALTER DATABASE DBVeterinaria_TPI SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
 --DROP DATABASE DBVeterinaria_TPI;
 
-
-
 CREATE DATABASE DBVeterinaria_TPI COLLATE Latin1_General_CI_AI;
 GO
 USE DBVeterinaria_TPI;
@@ -109,10 +107,11 @@ CREATE TABLE Cobros(
     Costo DECIMAL(10,2), 
     Activo BIT DEFAULT 1
 );
+GO
 
 
-
-
+use DBVeterinaria_TPI
+GO
 
 -- ===============================================================================
 -- ===============================================================================
@@ -122,24 +121,20 @@ CREATE TABLE Cobros(
 
 
 ---------------------VISTA MASCOTAS ACTIVAS CON DUEÑO-----------------------------
-
 CREATE VIEW VW_MascotasActivas AS
 SELECT M.IDMascota, M.Nombre AS NombreMascota, M.Tipo, M.Raza, M.Sexo, M.FechaNacimiento, M.Peso,
 D.Nombre AS NombreDueño, D.Apellido AS ApellidoDueño, D.Telefono, D.Correo, D.Domicilio
 FROM Mascotas AS M
 INNER JOIN Dueños AS D ON M.DniDueño = D.Dni
 WHERE M.Activo = 1 AND D.Activo = 1;
-
-
+GO
 -----------------------------------------------------------------------------------
-
 ----------------- VISTA DE USUARIOS CON ROLES -------------------------------------
 CREATE VIEW VW_UsuariosRoles AS
 SELECT U.Usuario, U.Clave, U.Activo, R.Nombre AS Rol FROM Usuarios U
 INNER JOIN Rol R ON U.IDRol = R.IDRol
-
+GO
 -----------------------------------------------------------------------------------
-
 --------------VISTA DE MASCOTAS CON SU ULTIMA CONSULTA-----------------------------
 CREATE VIEW VW_MascotasUltimaConsulta AS
 SELECT 
@@ -151,28 +146,30 @@ SELECT
     FC.IDTurno,
     T.FechaHora
 FROM Mascotas M
-OUTER APPLY (
-    SELECT TOP 1 FC.*
-    FROM Turnos T
-    JOIN FichaConsulta FC ON FC.IDTurno = T.IDTurno
-    WHERE T.IDMascota = M.IDMascota
-    ORDER BY FC.IDFicha DESC
-) FC
+JOIN (
+    SELECT FC.*, T.IDMascota
+    FROM FichaConsulta FC
+    JOIN Turnos T ON FC.IDTurno = T.IDTurno
+    WHERE FC.IDFicha IN (
+        SELECT TOP 1 FC2.IDFicha
+        FROM FichaConsulta FC2
+        JOIN Turnos T2 ON FC2.IDTurno = T2.IDTurno
+        WHERE T2.IDMascota = T.IDMascota
+        ORDER BY FC2.IDFicha DESC
+    )
+) FC ON FC.IDMascota = M.IDMascota
 JOIN Turnos T ON T.IDTurno = FC.IDTurno;
 GO
 ----------------------------------------------------------------------------------------
-
 ------------- TURNOS PENDIENTES --------------------------------------------------------
-
 CREATE VIEW VW_TurnosPendientes AS
 SELECT T.IDTurno, (V.Apellido + ', ' + V.Nombre) AS Veterinario, M.Nombre AS Mascota, FechaHora FROM Turnos T
 INNER JOIN Veterinarios V ON T.MatriculaVeterinario = V.Matricula
 INNER JOIN Mascotas M ON T.IDMascota = M.IDMascota
 WHERE T.Estado like 'Pendiente';
+GO
 ----------------------------------------------------------------------------------------
-
 ------------ Vista Fichas con diagnostico por veterinario--------------------------------
-
 CREATE VIEW VW_FichasConDiagnostico AS
 SELECT 
     FC.IDFicha, 
@@ -190,13 +187,11 @@ WHERE FC.Activo = 1;
 GO
 ----------------------------------------------------------------------------------------
 
-
 -- =====================================================================================
 -- =====================================================================================
 -- =======================[   P R O C E D I M I E N T O S   ]===========================
 -- =====================================================================================
 -- =====================================================================================
-
 
 ------------------------ CAMBIAR CONTRASEÑA DE USUARIO ---------------------------------
 CREATE OR ALTER PROCEDURE SP_CambiarClave(
@@ -217,8 +212,8 @@ BEGIN
 		RAISERROR('El usuario ingresado no existe', 16, 1);
 	END
 END
+GO
 -----------------------------------------------------------------------------------------
-
 ---------------------------- REGISTRAR COBRO --------------------------------------------
 CREATE PROCEDURE SP_RegistrarCobro
     @IDTurno BIGINT,
@@ -239,16 +234,19 @@ BEGIN
         RETURN;
     END
 
+	IF @Costo <= 0
+    BEGIN
+        RAISERROR('Error, el costo debe ser mayor a 0.', 16, 1);
+        RETURN;
+    END
+
     INSERT INTO Cobros (IDTurno, LegajoRecepcionista, FormaPago, Costo)
     VALUES (@IDTurno, @LegajoRecepcionista, @FormaPago, @Costo);
 END;
 GO
 -----------------------------------------------------------------------------------------
-
-	
 -------------------------------AGREGAR MASCOTA-------------------------------------------
-
-CREATE PROCEDURE sp_AgregarMascota
+CREATE OR ALTER PROCEDURE sp_AgregarMascota
     @DniDueño VARCHAR(10),
     @Nombre VARCHAR(25),
     @Edad INT,
@@ -259,15 +257,40 @@ CREATE PROCEDURE sp_AgregarMascota
     @Sexo VARCHAR(20)
 AS
 BEGIN
-   
+    IF NOT EXISTS (SELECT 1 FROM Dueños WHERE Dni = @DniDueño AND Activo = 1)
+    BEGIN
+        RAISERROR('Error: El dueño no existe o está inactivo.', 16, 1);
+        RETURN;
+    END
+
+    IF EXISTS (
+        SELECT 1
+        FROM Mascotas
+        WHERE DniDueño = @DniDueño
+          AND Nombre = @Nombre
+          AND Tipo = @Tipo
+          AND Raza = @Raza
+          AND FechaNacimiento = @FechaNacimiento
+          AND Activo = 1
+    )
+    BEGIN
+        RAISERROR('Error: Ya existe una mascota registrada con esos datos para este dueño.', 16, 1);
+        RETURN;
+    END
+
+    IF @FechaNacimiento >= GETDATE()
+    BEGIN
+        RAISERROR('Error: La fecha de nacimiento debe ser anterior a la fecha actual.', 16, 1);
+        RETURN;
+    END
+
     INSERT INTO Mascotas (DniDueño, Nombre, Edad, FechaNacimiento, Peso, Tipo, Raza, Sexo, FechaRegistro, Activo)
     VALUES (@DniDueño, @Nombre, @Edad, @FechaNacimiento, @Peso, @Tipo, @Raza, @Sexo, GETDATE(), 1);
 
     PRINT 'Mascota registrada correctamente.';
 END;
-
+GO
 ---------------------------------------------------------------------------
-
 -------------- REGISTRAR RECEPCIONISTA -----------------------------------
 CREATE PROCEDURE SP_registrarRecepcionista(
 	@Usuario varchar(25),
@@ -279,7 +302,7 @@ CREATE PROCEDURE SP_registrarRecepcionista(
 ) AS
 BEGIN
 	BEGIN TRY
-		-- Verificamos si el usuario esta registrado en la tabla 'Usuarios' 
+
 		DECLARE @User varchar(25)
 		Select @User = Usuario from Usuarios WHERE Usuario like @Usuario 
 		IF @User IS NULL
@@ -287,17 +310,17 @@ BEGIN
 			RAISERROR ('NO EXISTE USUARIO REGISTRADO CON ESE NOMBRE', 16, 1)
 		END
 		
-		-- Verificamos que el Usuario no este regitrado con otra Recepcionista
+
 		IF(SELECT COUNT(*) FROM Recepcionistas WHERE Usuario like @Usuario) > 0
 		BEGIN
 			RAISERROR ('YA EXISTE RECEPCIONISTA CON ESE USUARIO', 16, 1)
 		END
-		-- Verificamos que no se encuentre registrada la Recepcionista 
+
 		IF(SELECT COUNT(*) FROM Recepcionistas WHERE Dni like @Dni) > 0
 		BEGIN
 			RAISERROR ('YA EXISTE RECEPCIONISTA CON ESE D.N.I.', 16, 1)
 		END
-		-- Registramos los Datos
+
 		INSERT INTO Recepcionistas (Usuario, Nombre, Apellido, Dni, Telefono, Correo) 
 		VALUES (@Usuario, @Nombre, @Apellido, @Dni, @Telefono, @Correo)
 
@@ -306,13 +329,9 @@ BEGIN
 		PRINT ERROR_MESSAGE()
 	END CATCH
 END;
-
+GO
 --------------------------------------------------------------------------------
-
-
 ---------------------- REGISTRAR VETERINARIO -----------------------------------
-
-
 CREATE PROCEDURE SP_registrarVeterinario(
 	@Matricula varchar(10),
 	@Usuario varchar(25),
@@ -324,7 +343,7 @@ CREATE PROCEDURE SP_registrarVeterinario(
 ) AS
 BEGIN
 	BEGIN TRY
-		-- Verificamos si el usuario esta registrado en la tabla 'Usuarios' 
+
 		DECLARE @User varchar(25)
 		Select @User = Usuario from Usuarios WHERE Usuario like @Usuario 
 		IF @User IS NULL
@@ -332,17 +351,17 @@ BEGIN
 			RAISERROR ('NO EXISTE USUARIO REGISTRADO CON ESE NOMBRE', 16, 1)
 		END
 		
-		-- Verificamos que el Usuario no este registrado con otro Veterinario 
+
 		IF(SELECT COUNT(*) FROM Veterinarios WHERE Usuario like @Usuario) > 0
 		BEGIN
 			RAISERROR ('YA EXISTE VETERINARIO CON ESE USUARIO', 16, 1)
 		END
-		-- Verificamos que no se encuentre registrada el veterinario 
+
 		IF(SELECT COUNT(*) FROM Veterinarios WHERE Dni like @Dni) > 0
 		BEGIN
 			RAISERROR ('YA EXISTE VETERINARIO CON ESE D.N.I.', 16, 1)
 		END
-		-- Registramos los Datos 
+
 		INSERT INTO Veterinarios (Matricula , Usuario, Nombre, Apellido, Dni, Telefono, Correo) 
 		VALUES (@Matricula, @Usuario, @Nombre, @Apellido, @Dni, @Telefono, @Correo)
 
@@ -351,11 +370,10 @@ BEGIN
 		PRINT ERROR_MESSAGE()
 	END CATCH
 END;
+GO
 ---------------------------------------------------------------------------------
-
 ------------------------------------REGISTRAR TURNO------------------------------
-
-
+GO
 CREATE OR ALTER PROCEDURE SP_RegistrarTurno
     @MatriculaVeterinario VARCHAR(10),
     @IDMascota BIGINT,
@@ -365,7 +383,6 @@ CREATE OR ALTER PROCEDURE SP_RegistrarTurno
 AS
 BEGIN
     
-
     DECLARE @CantidadVeterinarios INT;
     DECLARE @CantidadMascotas INT;
 
@@ -377,7 +394,7 @@ BEGIN
     
     IF @CantidadVeterinarios = 0
     BEGIN
-        RAISERROR('No se puede registrar el turno. El veterinario está inactivo.', 16, 1);
+        RAISERROR('No se puede registrar el turno. El veterinario no se encuentra o está inactivo.', 16, 1);
         RETURN;
     END;
 
@@ -389,29 +406,35 @@ BEGIN
  
     IF @CantidadMascotas = 0
     BEGIN
-        RAISERROR('No se puede registrar el turno. La mascota está inactiva.', 16, 1);
+        RAISERROR('No se puede registrar el turno. La mascota no se encuentra o está inactiva.', 16, 1);
         RETURN;
     END;
 
- 
+	--ultimo cambio aca, funciona bien
+	DECLARE @TurnosFechaHora datetime;
+
+	SELECT @TurnosFechaHora = COUNT(*)
+    FROM Turnos
+    WHERE MatriculaVeterinario = @MatriculaVeterinario
+      AND FechaHora            = @FechaHora
+      AND Activo               = 1;
+
+    IF @TurnosFechaHora > 0
+    BEGIN
+        RAISERROR('No se puede registrar el turno. El veterinario ya tiene un turno activo en esa fecha y hora.', 16, 1);
+        RETURN;
+    END
+	--revisar
+
     INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora, Estado, Activo)
     VALUES (@MatriculaVeterinario, @IDMascota, @FechaHora, @Estado, @Activo);
 
     PRINT 'Turno registrado correctamente.';
 END;
+
 GO
-
-select * from Turnos
-
-EXEC SP_RegistrarTurno 
-    @MatriculaVeterinario = 'VET001', 
-    @IDMascota = 2, 
-    @FechaHora = '2025-06-07 10:00:00', 
-    @Estado = 'CONFIRMADO', 
-    @Activo = 1;
 ------------------------------------------------------------------------------------------
 ---------------------------------OBTENER FICHAS POR VETERINARIO----------------------------
-
 CREATE OR ALTER PROCEDURE SP_ObtenerFichasPorVeterinario
     @MatriculaVeterinario VARCHAR(10)
 AS
@@ -436,9 +459,6 @@ BEGIN
     WHERE MatriculaVeterinario = @MatriculaVeterinario;
 END;
 GO
-
-EXEC SP_ObtenerFichasPorVeterinario @MatriculaVeterinario = 'VET001';
-
 ----------------------------------------------------------------------------------
 
 -- ===============================================================================
@@ -446,8 +466,6 @@ EXEC SP_ObtenerFichasPorVeterinario @MatriculaVeterinario = 'VET001';
 -- =======================[   T R I G G E R S   ]=================================
 -- ===============================================================================
 -- ===============================================================================
-
-
 
 -----------------------DESACTIVAR COBRO AL ELIMINAR TURNO--------------------------
 CREATE TRIGGER TRG_DesactivarCobro_AlEliminarTurno
@@ -460,10 +478,8 @@ BEGIN
     WHERE IDTurno IN (SELECT IDTurno FROM DELETED);
 END;
 GO
------------------------------------------------------------------------------------
-
+------------------------------------------------------------------------------------
 ------------------------VALIDAR SI MASCOTA Y VETERINARIO ESTAN INACTIVOS------------
-select * from Turnos
 CREATE OR ALTER TRIGGER trg_ValidarTurno
 ON Turnos
 AFTER INSERT
@@ -486,7 +502,6 @@ BEGIN
         RETURN;
     END;
 
-    
     SELECT @CantidadMascotasInactivas = COUNT(*)
     FROM inserted i
     INNER JOIN Mascotas m ON i.IDMascota = m.IDMascota
@@ -501,9 +516,9 @@ BEGIN
     END;
 END;
 GO
-
-
------------ USAR TURNO ELIMINADO CON OTRA MASCOTA -----------
+-----------------------------------------------------------------------------------
+------------------ USAR TURNO ELIMINADO CON OTRA MASCOTA --------------------------
+GO
 CREATE OR ALTER TRIGGER tg_asignarTurnoExistente
 ON Turnos
 INSTEAD OF INSERT
@@ -541,7 +556,7 @@ BEGIN
 		PRINT ERROR_MESSAGE()
 	END CATCH
 END
-
+GO
 ------------------------------------------------------------------------
 ----------------------ELIMINAR UN TURNO DE FORMA LOGICA---------------
 CREATE OR ALTER TRIGGER tg_EliminarTurnoLogico
@@ -553,7 +568,7 @@ BEGIN
 	SET Activo = 0
 	WHERE IDTurno IN (SELECT IDTurno FROM deleted)
 END
-
+GO
 --------------------------------------------------------------------------------------
 ------------------------- Eliminar una mascota de forma logica -----------------------
 CREATE OR ALTER TRIGGER tg_EliminarMascotaLogico
@@ -565,9 +580,69 @@ BEGIN
 	SET Activo = 0
 	WHERE IDMascota = (SELECT IDMascota From deleted)
 END
+GO
+--------------------------------------------------------------------------------------
+------------------------- Eliminar Dueños de forma logica ----------------------------
+CREATE OR ALTER TRIGGER tg_EliminarDueñoLogico
+On Dueños
+INSTEAD OF DELETE
+AS
+BEGIN	
+	UPDATE Dueños
+	SET Activo = 0
+	WHERE Dni = (SELECT Dni From deleted)
+END
+GO
+----------------------------------------------------------------------------------------
+------------------------- Eliminar FichaConsulta de forma logica -----------------------
+CREATE OR ALTER TRIGGER tg_EliminarFichaConsultaLogico
+On FichaConsulta
+INSTEAD OF DELETE
+AS
+BEGIN	
+	UPDATE FichaConsulta
+	SET Activo = 0
+	WHERE IDFicha = (SELECT IDFicha From deleted)
+END
+GO
+----------------------------------------------------------------------------------------
+------------------------- Eliminar FichaConsulta de forma logica -----------------------
+CREATE OR ALTER TRIGGER tg_EliminarRecepcionistaLogico
+On Recepcionistas
+INSTEAD OF DELETE
+AS
+BEGIN	
+	UPDATE Recepcionistas
+	SET Activo = 0
+	WHERE Legajo = (SELECT Legajo From deleted)
+END
+GO
+--------------------------------------------------------------------------------------
+------------------------- Eliminar Usuario de forma logica ---------------------------
+CREATE OR ALTER TRIGGER tg_EliminarUsuarioLogico
+On Usuarios
+INSTEAD OF DELETE
+AS
+BEGIN	
+	UPDATE Usuarios
+	SET Activo = 0
+	WHERE Usuario = (SELECT Usuario From deleted)
+END
+GO
+--------------------------------------------------------------------------------------
+------------------------- Eliminar Veterinario de forma logica -----------------------
+CREATE OR ALTER TRIGGER tg_EliminarVeterinarioLogico
+On Veterinarios
+INSTEAD OF DELETE
+AS
+BEGIN	
+	UPDATE Veterinarios
+	SET Activo = 0
+	WHERE Matricula = (SELECT Matricula From deleted)
+END
+GO
 --------------------------------------------------------------------------------------
 --------------------- Cambiar el estado de un turno atendido -------------------------
-
 CREATE OR ALTER TRIGGER tg_cambiarEstadoTurno_FichaConsulta
 ON FichaConsulta
 AFTER INSERT
@@ -575,7 +650,6 @@ AS
 BEGIN
 	BEGIN TRY
 		BEGIN TRANSACTION
-		 -- Luego de que se inserto el la consulta correctamente se modifica el estado del turno
 		 DECLARE @idTurno int
 		 Select @idTurno = IDTurno FROM INSERTED 
 		
@@ -587,65 +661,76 @@ BEGIN
 		ROLLBACK TRANSACTION
 	END CATCH
 END
-
+GO
 --------------------------------------------------------------------------------------
 -------------------CAMBIAR EL ESTADO DEL TURNO SI SE REALIZA EL COBRO (COBROS)-------
-
 CREATE OR ALTER TRIGGER tg_cambiarEstadoTurno_Cobros
 ON Cobros
 AFTER INSERT
 AS
 BEGIN
-	BEGIN TRY
-		BEGIN TRANSACTION
-		 -- Luego de que se inserto el cobro correctamente se modifica el estado del turno
-		 DECLARE @idTurno int
-		 Select @idTurno = IDTurno FROM INSERTED 
-		
-		UPDATE Turnos SET	Estado = 'COBRADO' WHERE IDTurno = @idTurno
-		
-		COMMIT TRANSACTION
-	END TRY
-	BEGIN CATCH
-		ROLLBACK TRANSACTION
-	END CATCH
-END
+    SET NOCOUNT ON;
+
+    DECLARE @TotalCobros INT;
+    SELECT @TotalCobros = COUNT(*) FROM inserted;
+
+    UPDATE t
+    SET Estado = 'COBRADO'
+    FROM Turnos AS t
+    JOIN inserted AS i ON t.IDTurno = i.IDTurno
+    WHERE t.Estado <> 'PENDIENTE';
+
+    -- POR LAS DUDAS ESTO
+	-- PQ si se mandan varios cobros a cambiar estaro, para ver si habia alguno pendiente y avisdar al user q no se actulizaon todos
+	-- con uno funciona tb
+    IF @@ROWCOUNT < @TotalCobros
+    BEGIN
+        PRINT 'Advertencia: Algunos turnos no se actualizaron porque están en estado PENDIENTE.';
+    END
+END;
+GO
 
 ------------------------------------------------------------------------------------
-------------------- NO ELIMINAR DUEÑO SI TIENE MASCOTA ACTIVA ----------------------
-
-CREATE OR ALTER TRIGGER tg_NoEliminarDueñoConMascotaActiva
+------------------------- Eliminar Dueños de forma logica ----------------------------
+---y ademas-------- NO ELIMINAR DUEÑO SI TIENE MASCOTA ACTIVA ------------------------
+CREATE OR ALTER TRIGGER tg_EliminarDueñoLogico
 ON Dueños
 INSTEAD OF DELETE
 AS
 BEGIN
-	BEGIN TRY
-		BEGIN TRANSACTION
-		DECLARE @dni VARCHAR(10) 
-		SELECT @dni = Dni FROM deleted
+    BEGIN TRY
+        BEGIN TRANSACTION
 
-		IF (SELECT COUNT(*) FROM Mascotas WHERE DniDueño = @dni AND Activo = 1) > 0
-			BEGIN
-				RAISERROR ('EL DUEÑO POSEE MASCOTAS ACTIVAS', 16, 1)	
-			END
-		ELSE
-			BEGIN	
-				UPDATE Dueños SET Activo = 0 WHERE Dni = @dni
-			END
-		COMMIT TRANSACTION
-	END TRY
-	BEGIN CATCH
-		ROLLBACK TRANSACTION
-		PRINT ERROR_MESSAGE()
-	END CATCH
+        DECLARE @dni VARCHAR(10)
+        SELECT @dni = Dni FROM deleted
+
+        -- ver si tiene le dueño mascotas q esten activ
+        IF (SELECT COUNT(*) FROM Mascotas WHERE DniDueño = @dni AND Activo = 1) > 0
+        BEGIN
+            RAISERROR('El dueño tiene mascotas activas.', 16, 1)
+        END
+        ELSE
+        BEGIN
+            UPDATE Dueños
+            SET Activo = 0
+            WHERE Dni = @dni
+        END
+
+        COMMIT TRANSACTION
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION
+        PRINT ERROR_MESSAGE()
+    END CATCH
 END
+GO
+--------------------------------------------------------------------------------------
 
 -- =================================================================================
 -- =================================================================================
 -- =======================[   R E G I S T R O S   ]=================================
 -- =================================================================================
 -- =================================================================================
-
 
 -- ROL
 INSERT INTO Rol (Nombre) VALUES ('Recepcionista'), ('Veterinario');
@@ -659,10 +744,10 @@ INSERT INTO Usuarios (Usuario, IDRol, Clave) VALUES
 ('recep_mruiz', 1, 'clave123');
 
 -- VETERINARIOS
-INSERT INTO Veterinarios (Matricula, Usuario, Nombre, Apellido, Dni, Telefono, Correo) VALUES 
-('VET001', 'vet_jlopez', 'Juan', 'Lopez', '30111222', '1122334455', 'jlopez@vet.com'),
-('VET002', 'vet_mgomez', 'Maria', 'Gomez', '30999888', '1133445566', 'mgomez@vet.com'),
-('VET003', 'vet_rsosa', 'Ricardo', 'Sosa', '32123456', '1144556677', 'rsosa@vet.com');
+INSERT INTO Veterinarios (Matricula, Usuario, Nombre, Apellido, Dni, Telefono, Correo, Activo) VALUES 
+('VET001', 'vet_jlopez', 'Juan', 'Lopez', '30111222', '1122334455', 'jlopez@vet.com', 1),
+('VET002', 'vet_mgomez', 'Maria', 'Gomez', '30999888', '1133445566', 'mgomez@vet.com', 1),
+('VET003', 'vet_rsosa', 'Ricardo', 'Sosa', '32123456', '1144556677', 'rsosa@vet.com', 1);
 
 -- RECEPCIONISTAS
 INSERT INTO Recepcionistas (Usuario, Nombre, Apellido, Dni, Telefono, Correo) VALUES 
@@ -682,16 +767,16 @@ INSERT INTO Mascotas (DniDueño, Nombre, Edad, FechaNacimiento, Peso, Tipo, Raza
 ('22222222', 'Toby', 5, '2020-07-01', 8.7, 'Perro', 'Beagle', 'Macho'),
 ('33333333', 'Luna', 1, '2024-02-14', 4.0, 'Gato', 'Persa', 'Hembra');
 
--- TURNOS (3 anteriores a la fecha de hoy)
-INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES ('VET003', 1, '2025-06-12 09:00')
-('VET001', 1, '2025-05-20 10:00'), -- anterior
-('VET002', 2, '2025-05-25 11:00'), -- anterior
-('VET003', 3, '2025-05-10 09:00'), -- anterior
-('VET001', 1, '2025-06-10 10:00'),
-('VET002', 2, '2025-06-11 11:00'),
-('VET003', 3, '2025-06-12 09:00'),
-('VET001', 4, '2025-06-13 13:00'),
-('VET002', 4, '2025-06-14 15:00');
+-- TURNOS
+INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES ('VET003', 1, '2025-06-12 09:00');
+INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES ('VET001', 1, '2025-05-20 10:00'); 
+INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES ('VET002', 2, '2025-05-25 11:00'); 
+INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES ('VET003', 3, '2025-05-10 09:00'); 
+INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES ('VET001', 1, '2025-06-10 10:00');
+INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES ('VET002', 2, '2025-06-11 11:00');
+INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES ('VET001', 4, '2025-06-13 13:00');
+INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES ('VET002', 4, '2025-06-14 15:00');
+
 
 -- FICHAS CONSULTA para los 3 turnos anteriores
 INSERT INTO FichaConsulta (IDTurno, Descripcion) VALUES 
@@ -705,5 +790,71 @@ INSERT INTO Cobros (IDTurno, LegajoRecepcionista, FormaPago, Costo) VALUES
 (2, 101, 'Tarjeta', 4500.00),
 (3, 100, 'MercadoPago', 3800.00);
 
-
+SELECT * FROM USUARIOS
+SELECT * FROM VETERINARIOS
 SELECT * FROM Turnos
+
+ --------------------------- De aca para arriba para crear la bd ---------------------------
+
+
+
+
+
+ --------------------------- -OTRAS / PRUEBAS ---------------------------
+--INSERTS CON LOS STORED
+--ASI SERIA EL INSERT CON EL SP
+BEGIN TRANSACTION;
+    EXEC sp_AgregarMascota @DniDueño='11111111', @Nombre='Firulais', @Edad=3, @FechaNacimiento='2022-01-15', @Peso=12.5, @Tipo='Perro', @Raza='Labrador', @Sexo='Macho';
+    EXEC sp_AgregarMascota @DniDueño='11111111', @Nombre='Mishi',   @Edad=2, @FechaNacimiento='2023-03-10', @Peso=3.2,  @Tipo='Gato', @Raza='Siamés',   @Sexo='Hembra';
+    EXEC sp_AgregarMascota @DniDueño='22222222', @Nombre='Toby',    @Edad=5, @FechaNacimiento='2020-07-01', @Peso=8.7,  @Tipo='Perro', @Raza='Beagle',   @Sexo='Macho';
+    EXEC sp_AgregarMascota @DniDueño='33333333', @Nombre='Luna',    @Edad=1, @FechaNacimiento='2024-02-14', @Peso=4.0,  @Tipo='Gato',  @Raza='Persa',    @Sexo='Hembra';
+COMMIT;
+GO
+---------------------------REGISTRO TURNO ---------------------------------------
+--USE DBVeterinaria_TPI;
+GO
+EXEC SP_RegistrarTurno 
+    @MatriculaVeterinario = 'VET001', 
+    @IDMascota = 2, 
+    @FechaHora = '2025-04-07 10:00:00', 
+    @Estado = 'CONFIRMADO', 
+    @Activo = 1;
+GO
+---------------------------------------------------------------------------------
+-----------COMPROBACION CARGAR DOS TURNOS MISMO DIA MISMO VETE-------------------
+-- Primera
+EXEC SP_RegistrarTurno
+    @MatriculaVeterinario = 'VET001',
+    @IDMascota            = 1,
+    @FechaHora            = '2025-06-15 10:00',
+    @Estado               = 'Pendiente',
+    @Activo               = 1;
+GO
+
+-- Segunda q tendria q dar error
+EXEC SP_RegistrarTurno
+    @MatriculaVeterinario = 'VET001',
+    @IDMascota            = 1,
+    @FechaHora            = '2025-06-15 10:00',
+    @Estado               = 'Pendiente',
+    @Activo               = 1;
+GO
+---------------------------------------------------------------------------------
+
+
+
+
+------------------------------ERRORES REPARACION----------------------------------------
+--REPARAR ERRORES (esto repara el error q a veces no deja crear el stored
+--CUANDO SALE UN ERROR COMO ESTE
+--Msg 208, Level 16, State 6, Procedure sp_AgregarMascota, Line 3 [Batch Start Line 246]
+--Invalid object name 'sp_AgregarMascota'.
+
+--DROP PROCEDURE IF EXISTS SP_ObtenerFichasPorVeterinario;
+--GO
+--REPARAR ERRORES
+--DROP PROCEDURE IF EXISTS sp_AgregarMascota;
+--GO
+--REPARAR ERRORES
+--DROP PROCEDURE IF EXISTS SP_RegistrarTurno;
+--GO
