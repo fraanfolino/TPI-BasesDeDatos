@@ -612,6 +612,34 @@ BEGIN
 	END CATCH
 END
 
+------------------------------------------------------------------------------------
+------------------- NO ELIMINAR DUEÑO SI TIENE MASCOTA ACTIVA ----------------------
+
+CREATE OR ALTER TRIGGER tg_NoEliminarDueñoConMascotaActiva
+ON Dueños
+INSTEAD OF DELETE
+AS
+BEGIN
+	BEGIN TRY
+		BEGIN TRANSACTION
+		DECLARE @dni VARCHAR(10) 
+		SELECT @dni = Dni FROM deleted
+
+		IF (SELECT COUNT(*) FROM Mascotas WHERE DniDueño = @dni AND Activo = 1) > 0
+			BEGIN
+				RAISERROR ('EL DUEÑO POSEE MASCOTAS ACTIVAS', 16, 1)	
+			END
+		ELSE
+			BEGIN	
+				UPDATE Dueños SET Activo = 0 WHERE Dni = @dni
+			END
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+		PRINT ERROR_MESSAGE()
+	END CATCH
+END
 
 -- =================================================================================
 -- =================================================================================
