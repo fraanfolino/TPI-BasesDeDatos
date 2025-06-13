@@ -268,33 +268,41 @@ CREATE OR ALTER PROCEDURE sp_AgregarMascota
     @Sexo VARCHAR(20)
 AS
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Dueños WHERE Dni = @DniDueño AND Activo = 1)
-    BEGIN
+    DECLARE @CantidadDueños INT;
+    DECLARE @CantidadMascotas INT;
+
+    SELECT @CantidadDueños = COUNT(*) FROM Dueños WHERE Dni = @DniDueño AND Activo = 1;
+
+    IF @CantidadDueños = 0
+    
+	BEGIN
         RAISERROR('Error: El dueño no existe o está inactivo.', 16, 1);
         RETURN;
-    END
+    END;
 
-    IF EXISTS (
-        SELECT 1
-        FROM Mascotas
-        WHERE DniDueño = @DniDueño
-          AND Nombre = @Nombre
-          AND Tipo = @Tipo
-          AND Raza = @Raza
-          AND FechaNacimiento = @FechaNacimiento
-          AND Activo = 1
-    )
+    SELECT @CantidadMascotas = COUNT(*) FROM Mascotas
+    WHERE DniDueño = @DniDueño
+      AND Nombre = @Nombre
+      AND Tipo = @Tipo
+      AND Raza = @Raza
+      AND FechaNacimiento = @FechaNacimiento
+      AND Activo = 1;
+
+    
+    IF @CantidadMascotas > 0
     BEGIN
         RAISERROR('Error: Ya existe una mascota registrada con esos datos para este dueño.', 16, 1);
         RETURN;
-    END
+    END;
 
+   
     IF @FechaNacimiento >= GETDATE()
     BEGIN
         RAISERROR('Error: La fecha de nacimiento debe ser anterior a la fecha actual.', 16, 1);
         RETURN;
-    END
+    END;
 
+  
     INSERT INTO Mascotas (DniDueño, Nombre, Edad, FechaNacimiento, Peso, Tipo, Raza, Sexo, FechaRegistro, Activo)
     VALUES (@DniDueño, @Nombre, @Edad, @FechaNacimiento, @Peso, @Tipo, @Raza, @Sexo, GETDATE(), 1);
 
@@ -398,9 +406,7 @@ BEGIN
     DECLARE @CantidadMascotas INT;
 
  
-    SELECT @CantidadVeterinarios = COUNT(*)
-    FROM Veterinarios
-    WHERE Matricula = @MatriculaVeterinario AND Activo = 1;
+    SELECT @CantidadVeterinarios = COUNT(*) FROM Veterinarios WHERE Matricula = @MatriculaVeterinario AND Activo = 1;
 
     
     IF @CantidadVeterinarios = 0
@@ -455,9 +461,7 @@ BEGIN
     DECLARE @CantidadVeterinarios INT;
 
    
-    SELECT @CantidadVeterinarios = COUNT(*)
-    FROM Veterinarios
-    WHERE Matricula = @MatriculaVeterinario;
+    SELECT @CantidadVeterinarios = COUNT(*) FROM Veterinarios WHERE Matricula = @MatriculaVeterinario;
 
     
     IF @CantidadVeterinarios = 0
@@ -606,7 +610,7 @@ END
 GO
 ----------------------------------------------------------------------------------------
 ------------------------- Eliminar FichaConsulta de forma logica -----------------------
-CREATE OR ALTER TRIGGER tg_EliminarFichaConsultaLogico
+CREATE OR ALTER  TRIGGER tg_EliminarFichaConsultaLogico
 On FichaConsulta
 INSTEAD OF DELETE
 AS
@@ -618,7 +622,7 @@ END
 GO
 ----------------------------------------------------------------------------------------
 ------------------------- Eliminar FichaConsulta de forma logica -----------------------
-CREATE OR ALTER TRIGGER tg_EliminarRecepcionistaLogico
+CREATE OR ALTER  TRIGGER tg_EliminarRecepcionistaLogico
 On Recepcionistas
 INSTEAD OF DELETE
 AS
@@ -630,7 +634,7 @@ END
 GO
 --------------------------------------------------------------------------------------
 ------------------------- Eliminar Usuario de forma logica ---------------------------
-CREATE OR ALTER TRIGGER tg_EliminarUsuarioLogico
+CREATE OR ALTER  TRIGGER tg_EliminarUsuarioLogico
 On Usuarios
 INSTEAD OF DELETE
 AS
@@ -642,7 +646,7 @@ END
 GO
 --------------------------------------------------------------------------------------
 ------------------------- Eliminar Veterinario de forma logica -----------------------
-CREATE OR ALTER TRIGGER tg_EliminarVeterinarioLogico
+CREATE OR ALTER  TRIGGER tg_EliminarVeterinarioLogico
 On Veterinarios
 INSTEAD OF DELETE
 AS
@@ -807,7 +811,6 @@ SELECT * FROM Turnos
 
 
 
-
  --------------------------- -OTRAS / PRUEBAS ---------------------------
 --INSERTS CON LOS STORED
 --ASI SERIA EL INSERT CON EL SP
@@ -816,6 +819,7 @@ BEGIN TRANSACTION;
     EXEC sp_AgregarMascota @DniDueño='11111111', @Nombre='Mishi',   @Edad=2, @FechaNacimiento='2023-03-10', @Peso=3.2,  @Tipo='Gato', @Raza='Siamés',   @Sexo='Hembra';
     EXEC sp_AgregarMascota @DniDueño='22222222', @Nombre='Toby',    @Edad=5, @FechaNacimiento='2020-07-01', @Peso=8.7,  @Tipo='Perro', @Raza='Beagle',   @Sexo='Macho';
     EXEC sp_AgregarMascota @DniDueño='33333333', @Nombre='Luna',    @Edad=1, @FechaNacimiento='2024-02-14', @Peso=4.0,  @Tipo='Gato',  @Raza='Persa',    @Sexo='Hembra';
+    EXEC sp_AgregarMascota @DniDueño='11111111', @Nombre='Max',     @Edad=4, @FechaNacimiento='2021-08-20', @Peso=10.5, @Tipo='Perro', @Raza='Boxer',  @Sexo='Macho';
 COMMIT;
 GO
 ---------------------------REGISTRO TURNO ---------------------------------------
