@@ -101,7 +101,7 @@ GO
 ---- NICOLAS ------
 CREATE TABLE Cobros(
     IDCobro BIGINT PRIMARY KEY IDENTITY (1,1),
-    IDTurno BIGINT NOT NULL FOREIGN KEY REFERENCES Turnos(IDTurno),
+    IDFicha INT NOT NULL FOREIGN KEY REFERENCES FichaConsulta(IDFicha),
     LegajoRecepcionista BIGINT NOT NULL FOREIGN KEY REFERENCES Recepcionistas(Legajo), 
     FormaPago VARCHAR(30),
     Costo DECIMAL(10,2), 
@@ -115,7 +115,7 @@ GO
 
 -- ===============================================================================
 -- ===============================================================================
--- =======================[   V I A S T A S   ]===================================
+-- =======================[   V I S T A S   ]===================================
 -- ===============================================================================
 -- ===============================================================================
 
@@ -185,6 +185,17 @@ INNER JOIN Turnos T ON FC.IDTurno = T.IDTurno
 INNER JOIN Veterinarios V ON T.MatriculaVeterinario = V.Matricula
 WHERE FC.Activo = 1;
 GO
+-------------- La descripcion completa de las consultas cobradas------------------------
+
+CREATE OR ALTER VIEW VW_ConsultasCobradas AS
+SELECT (D.Nombre + ',' + D.Apellido) AS Dueño, M.Nombre AS Mascota, FC.Descripcion AS Consulta, C.Costo FROM Cobros C
+INNER JOIN FichaConsulta FC ON C.IDFicha = FC.IDFicha
+INNER JOIN Turnos T ON FC.IDTurno = T.IDTurno
+INNER JOIN Mascotas M ON M.IDMascota = T.IDMascota
+INNER JOIN Dueños D ON M.DniDueño = D.Dni
+WHERE C.Activo = 1
+GO
+
 ----------------------------------------------------------------------------------------
 
 -- =====================================================================================
@@ -216,13 +227,13 @@ GO
 -----------------------------------------------------------------------------------------
 ---------------------------- REGISTRAR COBRO --------------------------------------------
 CREATE PROCEDURE SP_RegistrarCobro
-    @IDTurno BIGINT,
+    @IDFicha BIGINT,
     @LegajoRecepcionista BIGINT,
     @FormaPago VARCHAR(30),
     @Costo DECIMAL(10,2)
 AS
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM Turnos WHERE IDTurno = @IDTurno AND Activo = 1)
+    IF NOT EXISTS (SELECT 1 FROM FichaConsulta WHERE IDFicha = @IDFicha AND Activo = 1)
     BEGIN
         RAISERROR('Error, no se encontro el turno', 16, 1);
         RETURN;
@@ -240,8 +251,8 @@ BEGIN
         RETURN;
     END
 
-    INSERT INTO Cobros (IDTurno, LegajoRecepcionista, FormaPago, Costo)
-    VALUES (@IDTurno, @LegajoRecepcionista, @FormaPago, @Costo);
+    INSERT INTO Cobros (IDFicha, LegajoRecepcionista, FormaPago, Costo)
+    VALUES (@IDFicha, @LegajoRecepcionista, @FormaPago, @Costo);
 END;
 GO
 -----------------------------------------------------------------------------------------
@@ -467,15 +478,15 @@ GO
 -- ===============================================================================
 -- ===============================================================================
 
------------------------DESACTIVAR COBRO AL ELIMINAR TURNO--------------------------
-CREATE TRIGGER TRG_DesactivarCobro_AlEliminarTurno
-ON Turnos
+-----------------------DESACTIVAR COBRO AL ELIMINAR CONSULTA--------------------------
+CREATE TRIGGER TRG_DesactivarCobro_AlEliminarConsulta
+ON FichaConsulta
 AFTER DELETE
 AS
 BEGIN
     UPDATE Cobros
     SET Activo = 0
-    WHERE IDTurno IN (SELECT IDTurno FROM DELETED);
+    WHERE IDFicha IN (SELECT IDTurno FROM DELETED);
 END;
 GO
 ------------------------------------------------------------------------------------
@@ -669,25 +680,22 @@ ON Cobros
 AFTER INSERT
 AS
 BEGIN
-    SET NOCOUNT ON;
-
-    DECLARE @TotalCobros INT;
-    SELECT @TotalCobros = COUNT(*) FROM inserted;
-
-    UPDATE t
-    SET Estado = 'COBRADO'
-    FROM Turnos AS t
-    JOIN inserted AS i ON t.IDTurno = i.IDTurno
-    WHERE t.Estado <> 'PENDIENTE';
-
-    -- POR LAS DUDAS ESTO
-	-- PQ si se mandan varios cobros a cambiar estaro, para ver si habia alguno pendiente y avisdar al user q no se actulizaon todos
-	-- con uno funciona tb
-    IF @@ROWCOUNT < @TotalCobros
-    BEGIN
-        PRINT 'Advertencia: Algunos turnos no se actualizaron porque están en estado PENDIENTE.';
-    END
-END;
+	BEGIN TRY
+		BEGIN TRANSACTION
+		 -- Luego de que se inserto el cobro correctamente se modifica el estado del turno
+		 DECLARE @idFicha int
+		 DECLARE @idTurno int
+		 Select @idFicha = IDFicha FROM INSERTED 
+		 Select @idTurno = IDTurno FROM FichaConsulta WHERE IDFicha = @idFicha
+		
+		UPDATE Turnos SET	Estado = 'COBRADO' WHERE IDTurno = @idTurno
+		
+		COMMIT TRANSACTION
+	END TRY
+	BEGIN CATCH
+		ROLLBACK TRANSACTION
+	END CATCH
+END
 GO
 
 ------------------------------------------------------------------------------------
@@ -785,7 +793,7 @@ INSERT INTO FichaConsulta (IDTurno, Descripcion) VALUES
 (3, 'Se trató una infección leve en el oído.');
 
 -- COBROS para los turnos anteriores
-INSERT INTO Cobros (IDTurno, LegajoRecepcionista, FormaPago, Costo) VALUES 
+INSERT INTO Cobros (IDFicha, LegajoRecepcionista, FormaPago, Costo) VALUES 
 (2, 100, 'Efectivo', 3500.00),
 (2, 101, 'Tarjeta', 4500.00),
 (3, 100, 'MercadoPago', 3800.00);
