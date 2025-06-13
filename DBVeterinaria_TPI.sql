@@ -199,13 +199,13 @@ GO
 
 
 ------------------------ CAMBIAR CONTRASEÑA DE USUARIO ---------------------------------
-CREATE PROCEDURE SP_CambiarClave(
+CREATE OR ALTER PROCEDURE SP_CambiarClave(
 	@User VARCHAR(25),
   	@Pass VARCHAR(255)
 )
 AS
 BEGIN
-	IF EXISTS (SELECT 1 FROM Usuarios WHERE Usuario = @User)
+	IF (SELECT COUNT(*) FROM Usuarios WHERE Usuario =  @User) > 0
 	BEGIN
 		UPDATE Usuarios 
 		SET Clave = @Pass 
@@ -218,7 +218,6 @@ BEGIN
 	END
 END
 -----------------------------------------------------------------------------------------
-
 
 ---------------------------- REGISTRAR COBRO --------------------------------------------
 CREATE PROCEDURE SP_RegistrarCobro
