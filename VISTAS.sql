@@ -8,12 +8,12 @@ GO
 -- =====================================================================================
 
 
--------------------------------- MASCOTAS ACTIVAS CON DUEÑO ----------------------------
+-------------------------------- MASCOTAS ACTIVAS CON DUEÃ‘O ----------------------------
 CREATE VIEW VW_MascotasActivas AS
 SELECT M.IDMascota, M.Nombre AS NombreMascota, M.Tipo, M.Raza, M.Sexo, M.FechaNacimiento, M.Peso,
-D.Nombre AS NombreDueño, D.Apellido AS ApellidoDueño, D.Telefono, D.Correo, D.Domicilio
+D.Nombre AS NombreDueÃ±o, D.Apellido AS ApellidoDueÃ±o, D.Telefono, D.Correo, D.Domicilio
 FROM Mascotas AS M
-INNER JOIN Dueños AS D ON M.DniDueño = D.Dni
+INNER JOIN DueÃ±os AS D ON M.DniDueÃ±o = D.Dni
 WHERE M.Activo = 1 AND D.Activo = 1;
 GO
 
@@ -28,7 +28,7 @@ CREATE VIEW VW_MascotasUltimaConsulta AS
 SELECT 
     M.IDMascota,
     M.Nombre AS NombreMascota,
-    M.DniDueño,
+    M.DniDueÃ±o,
     FC.IDFicha,
     FC.Descripcion,
     FC.IDTurno,
@@ -76,10 +76,26 @@ GO
 -------------- DESCRIPCION COMPLETA DE LAS CONSULTAS COBRADAS --------------------
 
 CREATE OR ALTER VIEW VW_ConsultasCobradas AS
-SELECT (D.Nombre + ',' + D.Apellido) AS Dueño, M.Nombre AS Mascota, FC.Descripcion AS Consulta, C.Costo FROM Cobros C
+SELECT (D.Nombre + ',' + D.Apellido) AS DueÃ±o, M.Nombre AS Mascota, FC.Descripcion AS Consulta, C.Costo FROM Cobros C
 INNER JOIN FichaConsulta FC ON C.IDFicha = FC.IDFicha
 INNER JOIN Turnos T ON FC.IDTurno = T.IDTurno
 INNER JOIN Mascotas M ON M.IDMascota = T.IDMascota
-INNER JOIN Dueños D ON M.DniDueño = D.Dni
+INNER JOIN DueÃ±os D ON M.DniDueÃ±o = D.Dni
 WHERE C.Activo = 1
 GO
+
+---------------------------- VISTA DE COBROS MENSUALES ---------------------------
+CREATE OR ALTER VIEW VW_CobrosMensuales AS
+SELECT FORMAT(T.FechaHora, 'yyyy-MM') AS Mes, SUM(C.Costo) AS TotalMensual
+FROM Cobros C
+INNER JOIN FichaConsulta FC ON C.IDFicha = FC.IDFicha
+INNER JOIN Turnos T ON FC.IDTurno = T.IDTurno
+WHERE C.Activo = 1
+GROUP BY FORMAT(T.FechaHora, 'yyyy-MM');
+
+
+
+
+
+
+
