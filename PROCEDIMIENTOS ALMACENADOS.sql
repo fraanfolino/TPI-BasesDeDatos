@@ -4,7 +4,7 @@
 -- =====================================================================================
 -- =====================================================================================
 
------------------------- CAMBIAR CONTRASE—A DE USUARIO ---------------------------------
+------------------------ CAMBIAR CONTRASE√ëA DE USUARIO ---------------------------------
 CREATE OR ALTER PROCEDURE SP_CambiarClave(
 	@User VARCHAR(25),
   	@Pass VARCHAR(255)
@@ -16,7 +16,7 @@ BEGIN
 		UPDATE Usuarios 
 		SET Clave = @Pass 
 		WHERE Usuario = @User;
-		PRINT 'ContraseÒa actualizada con exito.';
+		PRINT 'Contrase√±a actualizada con exito.';
 	END
 	ELSE
 	BEGIN
@@ -58,7 +58,7 @@ GO
 -----------------------------------------------------------------------------------------
 -------------------------------AGREGAR MASCOTA-------------------------------------------
 CREATE OR ALTER PROCEDURE sp_AgregarMascota
-    @DniDueÒo VARCHAR(10),
+    @DniDue√±o VARCHAR(10),
     @Nombre VARCHAR(25),
     @Edad INT,
     @FechaNacimiento DATETIME,
@@ -68,20 +68,20 @@ CREATE OR ALTER PROCEDURE sp_AgregarMascota
     @Sexo VARCHAR(20)
 AS
 BEGIN
-    DECLARE @CantidadDueÒos INT;
+    DECLARE @CantidadDue√±os INT;
     DECLARE @CantidadMascotas INT;
 
-    SELECT @CantidadDueÒos = COUNT(*) FROM DueÒos WHERE Dni = @DniDueÒo AND Activo = 1;
+    SELECT @CantidadDue√±os = COUNT(*) FROM Due√±os WHERE Dni = @DniDue√±o AND Activo = 1;
 
-    IF @CantidadDueÒos = 0
+    IF @CantidadDue√±os = 0
     
 	BEGIN
-        RAISERROR('Error: El dueÒo no existe o est· inactivo.', 16, 1);
+        RAISERROR('Error: El due√±o no existe o est√° inactivo.', 16, 1);
         RETURN;
     END;
 
     SELECT @CantidadMascotas = COUNT(*) FROM Mascotas
-    WHERE DniDueÒo = @DniDueÒo
+    WHERE DniDue√±o = @DniDue√±o
       AND Nombre = @Nombre
       AND Tipo = @Tipo
       AND Raza = @Raza
@@ -91,7 +91,7 @@ BEGIN
     
     IF @CantidadMascotas > 0
     BEGIN
-        RAISERROR('Error: Ya existe una mascota registrada con esos datos para este dueÒo.', 16, 1);
+        RAISERROR('Error: Ya existe una mascota registrada con esos datos para este due√±o.', 16, 1);
         RETURN;
     END;
 
@@ -103,8 +103,8 @@ BEGIN
     END;
 
   
-    INSERT INTO Mascotas (DniDueÒo, Nombre, Edad, FechaNacimiento, Peso, Tipo, Raza, Sexo, FechaRegistro, Activo)
-    VALUES (@DniDueÒo, @Nombre, @Edad, @FechaNacimiento, @Peso, @Tipo, @Raza, @Sexo, GETDATE(), 1);
+    INSERT INTO Mascotas (DniDue√±o, Nombre, Edad, FechaNacimiento, Peso, Tipo, Raza, Sexo, FechaRegistro, Activo)
+    VALUES (@DniDue√±o, @Nombre, @Edad, @FechaNacimiento, @Peso, @Tipo, @Raza, @Sexo, GETDATE(), 1);
 
     PRINT 'Mascota registrada correctamente.';
 END;
@@ -211,7 +211,7 @@ BEGIN
     
     IF @CantidadVeterinarios = 0
     BEGIN
-        RAISERROR('No se puede registrar el turno. El veterinario no se encuentra o est· inactivo.', 16, 1);
+        RAISERROR('No se puede registrar el turno. El veterinario no se encuentra o est√° inactivo.', 16, 1);
         RETURN;
     END;
 
@@ -223,7 +223,7 @@ BEGIN
  
     IF @CantidadMascotas = 0
     BEGIN
-        RAISERROR('No se puede registrar el turno. La mascota no se encuentra o est· inactiva.', 16, 1);
+        RAISERROR('No se puede registrar el turno. La mascota no se encuentra o est√° inactiva.', 16, 1);
         RETURN;
     END;
 
@@ -272,5 +272,27 @@ BEGIN
 
     SELECT * FROM VW_FichasConDiagnostico
     WHERE MatriculaVeterinario = @MatriculaVeterinario;
+END;
+GO
+------------------------------------------------------------------------------------------
+-----------------------FILTRAR CONSULTAS COBRADAS ENTRE DOS FECHA-------------------------
+CREATE OR ALTER PROCEDURE sp_ConsultasEntreFechas
+    @Desde DATETIME,
+    @Hasta DATETIME
+AS
+BEGIN
+    SELECT (D.Nombre + ', ' + D.Apellido) AS Due√±o, 
+			M.Nombre AS Mascota, 
+			FC.Descripcion AS Consulta, 
+			C.Costo,
+			T.FechaHora AS Fecha
+    FROM Cobros C
+		INNER JOIN FichaConsulta FC ON C.IDFicha = FC.IDFicha
+		INNER JOIN Turnos T ON FC.IDTurno = T.IDTurno
+		INNER JOIN Mascotas M ON M.IDMascota = T.IDMascota
+		INNER JOIN Due√±os D ON M.DniDue√±o = D.Dni
+    WHERE 
+        C.Activo = 1
+        AND T.FechaHora BETWEEN @Desde AND @Hasta
 END;
 GO
