@@ -143,16 +143,37 @@ BEGIN
 	WHERE Legajo = (SELECT Legajo From deleted)
 END
 GO
---------------------------------------------------------------------------------------
-------------------------- Eliminar Usuario de forma logica ---------------------------
+---------------------------------------------------------------------------------------------------------------
+------------------------- Eliminar Usuario de forma logica, SI NO PERTENECE A NADIE ---------------------------
 CREATE OR ALTER  TRIGGER tg_EliminarUsuarioLogico
 On Usuarios
 INSTEAD OF DELETE
 AS
-BEGIN	
-	UPDATE Usuarios
-	SET Activo = 0
-	WHERE Usuario = (SELECT Usuario From deleted)
+BEGIN
+    BEGIN TRY
+        BEGIN TRANSACTION
+
+        DECLARE @User VARCHAR(25)
+        SELECT @User = Usuario FROM deleted
+
+
+        IF ((SELECT COUNT(*) FROM Veterinarios WHERE Usuario = @User AND Activo = 1) > 0 OR (SELECT COUNT(*) FROM Recepcionistas WHERE Usuario = @User AND Activo = 1) > 0)
+        BEGIN
+            RAISERROR('EXISTE UN EMPLEADO ACTIVO CON ESE USUARIO', 16, 1)
+            ROLLBACK TRANSACTION
+            RETURN
+        END
+
+        UPDATE Usuarios
+        SET Activo = 0
+        WHERE Usuario = @User
+
+        COMMIT TRANSACTION
+    END TRY
+    BEGIN CATCH
+        ROLLBACK TRANSACTION
+        PRINT ERROR_MESSAGE()
+    END CATCH
 END
 GO
 --------------------------------------------------------------------------------------

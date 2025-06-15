@@ -11,16 +11,16 @@ CREATE OR ALTER PROCEDURE SP_CambiarClave(
 )
 AS
 BEGIN
-	IF (SELECT COUNT(*) FROM Usuarios WHERE Usuario =  @User) > 0
+	IF (SELECT COUNT(*) FROM Usuarios WHERE Usuario =  @User) = 0 
+	BEGIN
+		RAISERROR('El usuario ingresado no existe', 16, 1);
+		RETURN
+	END
+	ELSE
 	BEGIN
 		UPDATE Usuarios 
 		SET Clave = @Pass 
 		WHERE Usuario = @User;
-		PRINT 'Contraseña actualizada con exito.';
-	END
-	ELSE
-	BEGIN
-		RAISERROR('El usuario ingresado no existe', 16, 1);
 	END
 END
 GO
@@ -150,6 +150,66 @@ BEGIN
 END;
 GO
 --------------------------------------------------------------------------------
+------------------------------ CREAR USUARIO -----------------------------------
+CREATE OR ALTER PROCEDURE SP_CrearUsuario(
+	@Usuario varchar(25),
+	@IDRol int,
+	@Clave varchar(255)
+) AS
+BEGIN
+	BEGIN TRY
+
+		IF(SELECT COUNT(*) FROM Usuarios WHERE Usuario = @Usuario) > 0
+		BEGIN
+			RAISERROR ('YA EXISTE USUARIO REGISTRADO CON ESE NOMBRE DE USUARIO.', 16, 1)
+			RETURN
+		END
+
+		IF (SELECT COUNT(*) FROM Rol WHERE IDRol = @IDRol) < 1 
+		BEGIN
+			RAISERROR ('EL ROL INGRESADO NO EXISTE.', 16, 1)
+			RETURN
+		END
+
+		INSERT INTO Usuarios (Usuario, IDRol, Clave) 
+		VALUES (@Usuario, @IDRol, @Clave)
+
+	END TRY
+	BEGIN CATCH
+		PRINT ERROR_MESSAGE()
+	END CATCH
+END;
+GO
+--------------------------------------------------------------------------------
+---------------------------- AGREGAR DUEÑO -------------------------------------
+CREATE OR ALTER PROCEDURE SP_AgregarDueño(
+	@Dni varchar(10),
+	@Nombre varchar(25),
+	@Apellido varchar(25),
+	@Telefono varchar(20),
+	@Correo varchar(50),
+	@Domicilio varchar(50)
+) AS
+BEGIN
+	BEGIN TRY
+	
+		IF(SELECT COUNT(*) FROM Dueños WHERE Dni = @Dni) > 0
+		BEGIN
+			RAISERROR ('YA EXISTE DUEÑO CON ESE DNI.', 16, 1)
+			RETURN
+		END
+
+		INSERT INTO Dueños (Dni, Nombre, Apellido, Telefono, Correo, Domicilio) 
+		VALUES (@Dni, @Nombre, @Apellido, @Telefono, @Correo, @Domicilio)
+		PRINT('DUEÑO AGREGADO CORRECTAMENTE.')
+
+	END TRY
+	BEGIN CATCH
+		PRINT ERROR_MESSAGE()
+	END CATCH
+END;
+GO
+--------------------------------------------------------------------------------
 ---------------------- REGISTRAR VETERINARIO -----------------------------------
 CREATE PROCEDURE SP_registrarVeterinario(
 	@Matricula varchar(10),
@@ -189,7 +249,6 @@ BEGIN
 		PRINT ERROR_MESSAGE()
 	END CATCH
 END;
-GO
 ---------------------------------------------------------------------------------
 ------------------------------------REGISTRAR TURNO------------------------------
 GO
@@ -296,3 +355,4 @@ BEGIN
         AND T.FechaHora BETWEEN @Desde AND @Hasta
 END;
 GO
+
