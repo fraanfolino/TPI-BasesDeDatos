@@ -26,33 +26,49 @@ END
 GO
 -----------------------------------------------------------------------------------------
 ---------------------------- REGISTRAR COBRO --------------------------------------------
-CREATE PROCEDURE SP_RegistrarCobro
+CREATE OR ALTER PROCEDURE SP_RegistrarCobro
     @IDFicha BIGINT,
     @LegajoRecepcionista BIGINT,
     @FormaPago VARCHAR(30),
     @Costo DECIMAL(10,2)
 AS
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM FichaConsulta WHERE IDFicha = @IDFicha AND Activo = 1)
+    DECLARE @ExisteFicha INT;
+    DECLARE @ExisteRecepcionista INT;
+    DECLARE @CobroExistente INT;
+
+    SELECT @ExisteFicha = IDFicha FROM FichaConsulta WHERE IDFicha = @IDFicha AND Activo = 1;
+
+    IF @ExisteFicha IS NULL
     BEGIN
-        RAISERROR('Error, no se encontro el turno', 16, 1);
+        RAISERROR('Error, no se encontró el turno.', 16, 1);
         RETURN;
     END
 
-    IF NOT EXISTS (SELECT 1 FROM Recepcionistas WHERE Legajo = @LegajoRecepcionista AND Activo = 1)
+    SELECT @ExisteRecepcionista = Legajo FROM Recepcionistas WHERE Legajo = @LegajoRecepcionista AND Activo = 1;
+
+    IF @ExisteRecepcionista IS NULL
     BEGIN
-        RAISERROR('Error, el recepcionista no existe o esta inactivo.', 16, 1);
+        RAISERROR('Error, el recepcionista no existe o está inactivo.', 16, 1);
         RETURN;
     END
 
-	IF @Costo <= 0
+    SELECT @CobroExistente = IDCobro FROM Cobros WHERE IDFicha = @IDFicha AND Activo = 1;
+
+    IF @CobroExistente IS NOT NULL
+    BEGIN
+        RAISERROR('Error, ya se registró un cobro para este turno.', 16, 1);
+        RETURN;
+    END
+
+    IF @Costo <= 0
     BEGIN
         RAISERROR('Error, el costo debe ser mayor a 0.', 16, 1);
         RETURN;
     END
 
-    INSERT INTO Cobros (IDFicha, LegajoRecepcionista, FormaPago, Costo)
-    VALUES (@IDFicha, @LegajoRecepcionista, @FormaPago, @Costo);
+    INSERT INTO Cobros (IDFicha, LegajoRecepcionista, FormaPago, Costo, Activo)
+    VALUES (@IDFicha, @LegajoRecepcionista, @FormaPago, @Costo, 1);
 END;
 GO
 -----------------------------------------------------------------------------------------
