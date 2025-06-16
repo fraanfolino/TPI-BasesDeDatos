@@ -211,14 +211,13 @@ AS
 BEGIN
 	BEGIN TRY
 		BEGIN TRANSACTION
-		 -- Luego de que se inserto el cobro correctamente se modifica el estado del turno
 		 DECLARE @idFicha int
 		 DECLARE @idTurno int
 		 Select @idFicha = IDFicha FROM INSERTED 
 		 Select @idTurno = IDTurno FROM FichaConsulta WHERE IDFicha = @idFicha
-		
+	
 		UPDATE Turnos SET	Estado = 'COBRADO' WHERE IDTurno = @idTurno
-		
+	
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
@@ -226,7 +225,6 @@ BEGIN
 	END CATCH
 END
 GO
-
 ------------------------------------------------------------------------------------
 ----------- ELIMINAR DUEÑO DE FORMA LOGICA, SI NO TIENE MASCOTA  ------------------------
 CREATE OR ALTER TRIGGER tg_EliminarDueñoLogico
