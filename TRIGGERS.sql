@@ -5,17 +5,6 @@
 -- ===============================================================================
 -- ===============================================================================
 
------------------------DESACTIVAR COBRO AL ELIMINAR CONSULTA--------------------------
-CREATE TRIGGER TRG_DesactivarCobro_AlEliminarConsulta
-ON FichaConsulta
-AFTER DELETE
-AS
-BEGIN
-    UPDATE Cobros
-    SET Activo = 0
-    WHERE IDFicha IN (SELECT IDTurno FROM DELETED);
-END;
-GO
 ------------------------------------------------------------------------------------
 ------------------------VALIDAR SI MASCOTA Y VETERINARIO ESTAN INACTIVOS------------
 CREATE OR ALTER TRIGGER trg_ValidarTurno
@@ -35,7 +24,7 @@ BEGIN
    
     IF @CantidadVeterinariosInactivos > 0
     BEGIN
-        RAISERROR('No se puede insertar turno. El veterinario está inactivo.', 16, 1);
+        RAISERROR('No se puede insertar turno. El veterinario estÃ¡ inactivo.', 16, 1);
         ROLLBACK TRANSACTION;
         RETURN;
     END;
@@ -48,7 +37,7 @@ BEGIN
    
     IF @CantidadMascotasInactivas > 0
     BEGIN
-        RAISERROR('No se puede insertar turno. La mascota está inactiva.', 16, 1);
+        RAISERROR('No se puede insertar turno. La mascota estÃ¡ inactiva.', 16, 1);
         ROLLBACK TRANSACTION;
         RETURN;
     END;
@@ -129,6 +118,10 @@ BEGIN
 	UPDATE FichaConsulta
 	SET Activo = 0
 	WHERE IDFicha = (SELECT IDFicha From deleted)
+
+	UPDATE Cobros
+    	SET Activo = 0
+    	WHERE IDFicha IN (SELECT IDFicha FROM DELETED);
 END
 GO
 ----------------------------------------------------------------------------------------
@@ -235,9 +228,9 @@ END
 GO
 
 ------------------------------------------------------------------------------------
------------ ELIMINAR DUEÑO DE FORMA LOGICA, SI NO TIENE MASCOTA  ------------------------
-CREATE OR ALTER TRIGGER tg_EliminarDueñoLogico
-ON Dueños
+----------- ELIMINAR DUEÃ‘O DE FORMA LOGICA, SI NO TIENE MASCOTA  ------------------------
+CREATE OR ALTER TRIGGER tg_EliminarDueÃ±oLogico
+ON DueÃ±os
 INSTEAD OF DELETE
 AS
 BEGIN
@@ -247,14 +240,14 @@ BEGIN
         DECLARE @dni VARCHAR(10)
         SELECT @dni = Dni FROM deleted
 
-        -- ver si tiene le dueño mascotas q esten activ
-        IF (SELECT COUNT(*) FROM Mascotas WHERE DniDueño = @dni AND Activo = 1) > 0
+        -- ver si tiene le dueÃ±o mascotas q esten activ
+        IF (SELECT COUNT(*) FROM Mascotas WHERE DniDueÃ±o = @dni AND Activo = 1) > 0
         BEGIN
-            RAISERROR('El dueño tiene mascotas activas.', 16, 1)
+            RAISERROR('El dueÃ±o tiene mascotas activas.', 16, 1)
         END
         ELSE
         BEGIN
-            UPDATE Dueños
+            UPDATE DueÃ±os
             SET Activo = 0
             WHERE Dni = @dni
         END
