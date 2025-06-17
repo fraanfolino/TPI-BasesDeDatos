@@ -9,7 +9,7 @@ GO
 
 
 -------------------------------- MASCOTAS ACTIVAS CON DUEÑO ----------------------------
-CREATE VIEW VW_MascotasActivas AS
+CREATE OR ALTER VIEW VW_MascotasActivas AS
 SELECT M.IDMascota, M.Nombre AS NombreMascota, M.Tipo, M.Raza, M.Sexo, M.FechaNacimiento, M.Peso,
 D.Nombre AS NombreDueño, D.Apellido AS ApellidoDueño, D.Telefono, D.Correo, D.Domicilio
 FROM Mascotas AS M
@@ -18,13 +18,30 @@ WHERE M.Activo = 1 AND D.Activo = 1;
 GO
 
 ---------------------------------- USUARIOS CON ROLES ----------------------------------
-CREATE VIEW VW_UsuariosRoles AS
+CREATE OR ALTER VIEW VW_UsuariosRoles AS
 SELECT U.Usuario, U.Clave, U.Activo, R.Nombre AS Rol FROM Usuarios U
 INNER JOIN Rol R ON U.IDRol = R.IDRol
 GO
 
+------------------- TURNOS DETALLADOS ---------------------------------------------
+CREATE OR ALTER VIEW VW_TurnosDetallados AS
+SELECT 
+    T.IDTurno,
+    T.FechaHora,
+    T.Estado,
+    V.Nombre + ' ' + v.Apellido AS Veterinario,
+    D.Nombre + ' ' + d.Apellido AS Dueño,
+    M.Nombre AS Mascota
+
+FROM Turnos T
+JOIN Veterinarios v ON T.MatriculaVeterinario = V.Matricula
+JOIN Mascotas m ON T.IDMascota = M.IDMascota
+JOIN Dueños d ON M.DniDueño = D.Dni;
+GO
+
+
 ---------------------------- MASCOTAS CON SU ULTIMA CONSULTA ---------------------------
-CREATE VIEW VW_MascotasUltimaConsulta AS
+CREATE OR ALTER VIEW VW_MascotasUltimaConsulta AS
 SELECT 
     M.IDMascota,
     M.Nombre AS NombreMascota,
@@ -49,16 +66,10 @@ JOIN (
 JOIN Turnos T ON T.IDTurno = FC.IDTurno;
 GO
 
---------------------------------- TURNOS PENDIENTES ------------------------------
-CREATE VIEW VW_TurnosPendientes AS
-SELECT T.IDTurno, (V.Apellido + ', ' + V.Nombre) AS Veterinario, M.Nombre AS Mascota, FechaHora FROM Turnos T
-INNER JOIN Veterinarios V ON T.MatriculaVeterinario = V.Matricula
-INNER JOIN Mascotas M ON T.IDMascota = M.IDMascota
-WHERE T.Estado like 'Pendiente';
-GO
+
 
 ------------------------ FICHAS CON DIAGNOSTICO POR VETERINARIO -----------------
-CREATE VIEW VW_FichasConDiagnostico AS
+CREATE OR ALTER VIEW VW_FichasConDiagnostico AS
 SELECT 
     FC.IDFicha, 
     FC.Descripcion AS Diagnostico, 
@@ -92,7 +103,7 @@ INNER JOIN FichaConsulta FC ON C.IDFicha = FC.IDFicha
 INNER JOIN Turnos T ON FC.IDTurno = T.IDTurno
 WHERE C.Activo = 1
 GROUP BY FORMAT(T.FechaHora, 'yyyy-MM');
-
+GO
 
 
 

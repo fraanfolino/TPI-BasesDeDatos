@@ -1,4 +1,4 @@
---- ELIMINACION DE LA BASE DE DATOS -----
+-- ELIMINACION DE LA BASE DE DATOS -----
 --ALTER DATABASE DBVeterinaria_TPI SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
 --DROP DATABASE DBVeterinaria_TPI;
 
@@ -7,7 +7,7 @@ GO
 USE DBVeterinaria_TPI;
 GO
 
----- AGUSTIN ------
+
 CREATE TABLE Rol(
 	IDRol INT PRIMARY KEY IDENTITY (1,1),
 	Nombre VARCHAR(25) NOT NULL
@@ -22,7 +22,7 @@ CREATE TABLE Usuarios(
 );
 GO
 
----- FRANCO -----
+
 CREATE TABLE Dueños(
     Dni VARCHAR(10) PRIMARY KEY ,
     Nombre VARCHAR(25) NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE Dueños(
 );
 GO
 
----- SOL ----
+
 CREATE TABLE Veterinarios(
     Matricula VARCHAR(10) PRIMARY KEY,
     Usuario VARCHAR(25) NOT NULL FOREIGN KEY REFERENCES Usuarios(Usuario),
@@ -98,7 +98,7 @@ ADD CONSTRAINT FK_Turnos_Mascotas
 FOREIGN KEY (IDMascota) REFERENCES Mascotas(IDMascota);
 GO
 
----- NICOLAS ------
+
 CREATE TABLE Cobros(
     IDCobro BIGINT PRIMARY KEY IDENTITY (1,1),
     IDFicha INT NOT NULL FOREIGN KEY REFERENCES FichaConsulta(IDFicha),
@@ -164,76 +164,14 @@ INSERT INTO Turnos (MatriculaVeterinario, IDMascota, FechaHora) VALUES ('VET002'
 
 
 -- FICHAS CONSULTA para los 3 turnos anteriores
-INSERT INTO FichaConsulta (IDTurno, Descripcion) VALUES 
+INSERT INTO FichaConsulta (IDTurno, Descripcion) VALUES
 (2, 'Consulta general, se desparasitó al paciente.'),
 (1, 'Vacunación anual realizada sin inconvenientes.'),
 (3, 'Se trató una infección leve en el oído.');
 
 -- COBROS para los turnos anteriores
-INSERT INTO Cobros (IDFicha, LegajoRecepcionista, FormaPago, Costo) VALUES 
+INSERT INTO Cobros (IDFicha, LegajoRecepcionista, FormaPago, Costo) VALUES
 (2, 100, 'Efectivo', 3500.00),
 (2, 101, 'Tarjeta', 4500.00),
 (3, 100, 'MercadoPago', 3800.00);
 
-
- --------------------------- De aca para arriba para crear la bd ---------------------------
-
- --------------------------- -OTRAS / PRUEBAS ---------------------------
---INSERTS CON LOS STORED
---ASI SERIA EL INSERT CON EL SP
-BEGIN TRANSACTION;
-    EXEC sp_AgregarMascota @DniDueño='11111111', @Nombre='Firulais', @Edad=3, @FechaNacimiento='2022-01-15', @Peso=12.5, @Tipo='Perro', @Raza='Labrador', @Sexo='Macho';
-    EXEC sp_AgregarMascota @DniDueño='11111111', @Nombre='Mishi',   @Edad=2, @FechaNacimiento='2023-03-10', @Peso=3.2,  @Tipo='Gato', @Raza='Siamés',   @Sexo='Hembra';
-    EXEC sp_AgregarMascota @DniDueño='22222222', @Nombre='Toby',    @Edad=5, @FechaNacimiento='2020-07-01', @Peso=8.7,  @Tipo='Perro', @Raza='Beagle',   @Sexo='Macho';
-    EXEC sp_AgregarMascota @DniDueño='33333333', @Nombre='Luna',    @Edad=1, @FechaNacimiento='2024-02-14', @Peso=4.0,  @Tipo='Gato',  @Raza='Persa',    @Sexo='Hembra';
-    EXEC sp_AgregarMascota @DniDueño='11111111', @Nombre='Max',     @Edad=4, @FechaNacimiento='2021-08-20', @Peso=10.5, @Tipo='Perro', @Raza='Boxer',  @Sexo='Macho';
-COMMIT;
-GO
----------------------------REGISTRO TURNO ---------------------------------------
---USE DBVeterinaria_TPI;
-GO
-EXEC SP_RegistrarTurno 
-    @MatriculaVeterinario = 'VET001', 
-    @IDMascota = 2, 
-    @FechaHora = '2025-04-07 10:00:00', 
-    @Estado = 'CONFIRMADO', 
-    @Activo = 1;
-GO
----------------------------------------------------------------------------------
------------COMPROBACION CARGAR DOS TURNOS MISMO DIA MISMO VETE-------------------
--- Primera
-EXEC SP_RegistrarTurno
-    @MatriculaVeterinario = 'VET001',
-    @IDMascota            = 1,
-    @FechaHora            = '2025-06-15 10:00',
-    @Estado               = 'Pendiente',
-    @Activo               = 1;
-GO
-
--- Segunda q tendria q dar error
-EXEC SP_RegistrarTurno
-    @MatriculaVeterinario = 'VET001',
-    @IDMascota            = 1,
-    @FechaHora            = '2025-06-15 10:00',
-    @Estado               = 'Pendiente',
-    @Activo               = 1;
-GO
----------------------------------------------------------------------------------
-
-
-
-
-------------------------------ERRORES REPARACION----------------------------------------
---REPARAR ERRORES (esto repara el error q a veces no deja crear el stored
---CUANDO SALE UN ERROR COMO ESTE
---Msg 208, Level 16, State 6, Procedure sp_AgregarMascota, Line 3 [Batch Start Line 246]
---Invalid object name 'sp_AgregarMascota'.
-
---DROP PROCEDURE IF EXISTS SP_ObtenerFichasPorVeterinario;
---GO
---REPARAR ERRORES
---DROP PROCEDURE IF EXISTS sp_AgregarMascota;
---GO
---REPARAR ERRORES
---DROP PROCEDURE IF EXISTS SP_RegistrarTurno;
---GO
